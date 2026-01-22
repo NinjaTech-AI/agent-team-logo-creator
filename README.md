@@ -140,30 +140,14 @@ agent-team-logo-creator/
 ### Prerequisites
 
 - Python 3.11+
-- Claude Code CLI installed
-- Slack Workspace with Bot Token
-- GitHub Personal Access Token
-
-### Installation
-
-```bash
-# Clone the repository
-git clone https://github.com/NinjaTech-AI/agent-team-logo-creator.git
-cd agent-team-logo-creator
-
-# Install dependencies
-pip install -r requirements.txt
-
-# Configure environment
-cp .env.example .env
-# Edit .env with your credentials
-```
+- Claude Code CLI
+- Each agent runs in its own sandbox VM with pre-configured MCPs
 
 ### Usage
 
 ```bash
-# Run full sync cycle (all 4 agents)
-python src/orchestrator.py --sync
+# Run all agents (Nova → Pixel → Bolt → Scout)
+python src/orchestrator.py
 
 # Run a specific agent
 python src/orchestrator.py --agent Nova
@@ -173,16 +157,13 @@ python src/orchestrator.py --agent Pixel --task "Create homepage wireframe"
 python src/orchestrator.py --list
 ```
 
-## 🔐 Environment Variables
+### Environment
 
-| Variable | Description |
-|----------|-------------|
-| `SLACK_BOT_TOKEN` | Slack Bot OAuth Token |
-| `SLACK_CHANNEL_ID` | ID of #logo-creator channel |
-| `GITHUB_TOKEN` | GitHub Personal Access Token |
-| `GITHUB_REPO` | Repository name (owner/repo) |
-| `CLAUDE_MODEL` | Claude model to use |
-| `SYNC_INTERVAL_MINUTES` | Minutes between sync cycles |
+Each agent's sandbox VM has these MCPs pre-configured:
+- **Slack MCP** - All agents
+- **Image Generation MCP** - Pixel only  
+- **Internet Search MCP** - All agents
+- **GitHub access** - All agents
 
 ## 📝 Customizing Agents
 
