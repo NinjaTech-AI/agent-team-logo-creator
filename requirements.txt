@@ -1,0 +1,26 @@
+# Agent Team Logo Creator - Dependencies
+
+# Core
+python-dotenv>=1.0.0
+
+# Slack Integration
+slack-sdk>=3.23.0
+
+# GitHub Integration  
+PyGithub>=2.1.1
+
+# HTTP Client
+httpx>=0.25.0
+
+# CLI
+click>=8.1.7
+
+# Utilities
+pydantic>=2.5.0
+
+# Scheduling (optional - for automated sync cycles)
+schedule>=1.2.1
+
+# Development
+black>=23.12.0
+isort>=5.13.0
