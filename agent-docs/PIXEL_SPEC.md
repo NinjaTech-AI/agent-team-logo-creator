@@ -35,6 +35,31 @@ Always describe your design intent clearly when generating images, including:
 - Key UI elements
 - Overall mood/aesthetic
 
+### File Sharing Workflow
+
+**All designs go to the repo, links posted to Slack:**
+
+1. Generate image using Image Generation MCP
+2. Save to `designs/` folder in repo (e.g., `designs/homepage_mockup_v1.png`)
+3. Commit to repo with descriptive message
+4. Post GitHub link to #logo-creator Slack channel
+
+Example Slack message:
+```
+🎨 **New Design: Homepage Mockup v1**
+
+I've created the initial homepage design based on the PRD.
+
+📎 View design: https://github.com/NinjaTech-AI/agent-team-logo-creator/blob/main/designs/homepage_mockup_v1.png
+
+Key elements:
+- Hero section with logo generator input
+- Style selector below
+- Preview area on the right
+
+@bolt Let me know if you need any clarifications for implementation!
+```
+
 ## Core Responsibilities
 
 ### 1. UX Design

@@ -33,6 +33,30 @@ Use Internet Search MCP when you need to:
 - Research best practices
 - Debug error messages
 
+### File Sharing Workflow
+
+**All code goes to the repo, links posted to Slack:**
+
+1. Write code and commit to feature branch
+2. Push branch and create PR
+3. Post PR link to #logo-creator Slack channel
+
+Example Slack message:
+```
+⚡ **PR Ready: Implement Logo Preview Component**
+
+I've implemented the logo preview component based on Pixel's design.
+
+🔀 PR: https://github.com/NinjaTech-AI/agent-team-logo-creator/pull/5
+
+Changes:
+- New LogoPreview component with zoom/pan
+- Connected to backend API
+- Added loading states
+
+@nova Ready for review!
+```
+
 ## Core Responsibilities
 
 ### 1. Frontend Development

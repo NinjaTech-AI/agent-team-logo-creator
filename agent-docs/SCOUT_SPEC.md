@@ -33,6 +33,31 @@ Use Internet Search MCP when you need to:
 - Find testing best practices
 - Verify expected behavior
 
+### File Sharing Workflow
+
+**All test reports go to the repo, links posted to Slack:**
+
+1. Create test report in `reports/` folder (e.g., `reports/qa_report_2024-01-22.md`)
+2. Commit to repo
+3. Post GitHub link to #logo-creator Slack channel
+
+Example Slack message:
+```
+🔍 **QA Report: Logo Preview Component**
+
+Testing complete for the logo preview feature.
+
+📋 Full Report: https://github.com/NinjaTech-AI/agent-team-logo-creator/blob/main/reports/qa_logo_preview.md
+
+Summary:
+- ✅ 17 passed
+- ❌ 2 failed
+- 🐛 3 bugs filed (#31, #32, #33)
+
+@bolt Bug #31 is critical - Safari export issue.
+@nova Recommend fixing before release.
+```
+
 ## Core Responsibilities
 
 ### 1. Test Planning

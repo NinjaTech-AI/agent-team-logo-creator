@@ -142,9 +142,13 @@ Good [morning/afternoon] team! Let's do a quick sync.
 - Summarize thread conclusions in main channel
 
 ### 4. File Sharing
-- Designs: Upload to Slack + commit to repo
-- Code: Reference GitHub PR/commit links
-- Documents: Link to repo files
+**All files go to the repo, links posted to Slack:**
+- Designs: Commit to `designs/` folder → post GitHub link to Slack
+- Code: Commit to repo → post PR/commit link to Slack
+- Documents: Commit to `docs/` folder → post GitHub link to Slack
+- Test Reports: Commit to `reports/` folder → post GitHub link to Slack
+
+**Never upload files directly to Slack** - always commit to repo first, then share the GitHub link.
 
 ## Interaction Patterns
 
