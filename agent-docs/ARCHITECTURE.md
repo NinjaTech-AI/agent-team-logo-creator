@@ -138,10 +138,20 @@ Time: T+55 (Wrap Up)
 
 ## Integration Points
 
-### Slack Integration
+### MCP Tools Available
 
-```python
-# Key capabilities
+All agents run in Claude Code with pre-configured MCPs:
+
+| MCP | Available To | Capabilities |
+|-----|--------------|--------------|
+| **Slack MCP** | All agents | Post messages, read history, reply in threads, upload files |
+| **Image Generation MCP** | Pixel only | Generate UI mockups, wireframes, design concepts |
+| **Internet Search MCP** | All agents | Web search for research, documentation, best practices |
+
+### Slack MCP Usage
+
+```
+# Key capabilities via Slack MCP
 - Post messages to #logo-creator
 - Read channel history
 - Reply in threads
@@ -149,10 +159,30 @@ Time: T+55 (Wrap Up)
 - Mention other agents (@nova, @pixel, etc.)
 ```
 
-### GitHub Integration
+### Image Generation MCP Usage (Pixel)
 
-```python
-# Key capabilities
+```
+# Key capabilities via Image Generation MCP
+- Generate high-fidelity UI mockups
+- Create wireframes and layouts
+- Design visual concepts
+- Produce component designs
+```
+
+### Internet Search MCP Usage
+
+```
+# Key capabilities via Internet Search MCP
+- Research best practices
+- Find documentation
+- Competitor analysis
+- Look up error solutions
+```
+
+### GitHub Integration (via Claude Code)
+
+```
+# Key capabilities via Claude Code
 - Create/update issues
 - Create pull requests
 - Post review comments
