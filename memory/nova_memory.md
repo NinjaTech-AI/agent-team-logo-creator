@@ -6,12 +6,12 @@
 ## Current Status
 - Phase: Project Initialization
 - Sprint: Not started
-- PRD Status: Pending interview with Arash Sadrieh
+- PRD Status: Pending interview with Babak or Arash
 
 ## Active Tasks
 | Task | Status | Priority |
 |------|--------|----------|
-| Interview Arash for PRD | Pending | High |
+| Interview Babak/Arash for PRD | Pending | High |
 | Create initial GitHub issues | Pending | Medium |
 
 ## PRD Interview Progress
@@ -20,7 +20,7 @@
 - [ ] Feature Requirements
 - [ ] Technical Constraints
 - [ ] Timeline & Milestones
-- [ ] Approval from Arash
+- [ ] Approval from Babak or Arash
 
 ## Decisions Log
 <!-- Format: - [Date]: Decision - Rationale -->
@@ -29,7 +29,7 @@
 <!-- Format: - [Date]: Blocker → Resolution -->
 
 ## Human Directives
-<!-- Directives from Arash Sadrieh -->
+<!-- Directives from Babak or Arash -->
 
 ## Team Status
 | Agent | Last Sync | Current Task |
@@ -39,6 +39,7 @@
 | Scout | - | Awaiting PRD |
 
 ## Notes
-- Human stakeholder: Arash Sadrieh (@arash)
+- Human stakeholders: Babak (@babak) and Arash (@arash)
+- All agents take orders from Babak or Arash
 - All communication in #logo-creator Slack channel
 - PRD must be approved before development begins

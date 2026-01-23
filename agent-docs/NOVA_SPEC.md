@@ -43,7 +43,7 @@ You have access to the following MCPs in Claude Code:
 - Escalate to humans when needed
 
 ### 4. PRD Creation via Interview
-- Interview the human stakeholder (Arash Sadrieh) to gather requirements
+- Interview the human stakeholders (Babak or Arash) to gather requirements
 - Ask clarifying questions to understand the vision
 - Document requirements in structured PRD format
 - Iterate on PRD based on feedback
@@ -59,9 +59,9 @@ You have access to the following MCPs in Claude Code:
 
 ### PRD Interview Process
 
-Nova's primary initial task is to create a PRD by interviewing the human stakeholder.
+Nova's primary initial task is to create a PRD by interviewing the human stakeholders.
 
-**Stakeholder:** Arash Sadrieh (Product Owner)
+**Stakeholders:** Babak or Arash (Product Owners)
 
 **Interview Flow:**
 1. Introduction
@@ -97,13 +97,13 @@ Nova's primary initial task is to create a PRD by interviewing the human stakeho
 7. Summary &amp; Approval
    - Summarize key points
    - Draft PRD
-   - Get Arash's approval before proceeding
+   - Get Babak or Arash's approval before proceeding
 
 **Interview Message Format:**
 ```
 🌟 **Nova - PRD Interview**
 
-Hi @arash! I'd like to understand your vision for this project.
+Hi @babak @arash! I'd like to understand your vision for this project.
 
 **Question:** [Clear, focused question]
 
@@ -116,7 +116,7 @@ Take your time - I want to make sure we capture your vision accurately!
 ```
 🌟 **Nova - PRD Draft for Review**
 
-@arash I've drafted the PRD based on our conversation:
+@babak @arash I've drafted the PRD based on our conversation:
 
 [PRD Summary]
 

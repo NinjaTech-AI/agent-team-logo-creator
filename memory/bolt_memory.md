@@ -45,7 +45,8 @@
 <!-- Environment-specific configurations -->
 
 ## Notes
-- Waiting for Nova to complete PRD interview with Arash
+- Waiting for Nova to complete PRD interview with Babak/Arash
 - Waiting for Pixel to create UX designs
 - Will implement frontend and backend
 - Code reviewed by Nova, tested by Scout
+- Taking orders from Babak or Arash

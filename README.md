@@ -6,18 +6,19 @@ A multi-agent AI system for creating team logos, powered by collaborative AI age
 
 | Agent | Role | Responsibilities |
 |-------|------|------------------|
-| **Nova** 🌟 | Product Manager | PRD interviews with Arash, GitHub issues/PRs, task coordination, code reviews |
+| **Nova** 🌟 | Product Manager | PRD interviews with Babak/Arash, GitHub issues/PRs, task coordination, code reviews |
 | **Pixel** 🎨 | UX Designer | High-level UX designs as images, wireframes, visual mockups |
 | **Bolt** ⚡ | Full-Stack Developer | Frontend & backend implementation, code commits |
 | **Scout** 🔍 | QA Engineer | Testing, bug reports, quality assurance |
 
-## 👤 Human Stakeholder
+## 👤 Human Stakeholders
 
-**Arash Sadrieh** - Product Owner
-- Provides product vision and requirements
-- Participates in PRD interviews with Nova
-- Reviews and approves key decisions
+**Babak and Arash** - Product Owners
+- Provide product vision and requirements
+- Participate in PRD interviews with Nova
+- Review and approve key decisions
 - Available in #logo-creator Slack channel
+- All agents take orders from Babak or Arash
 
 ## 🏗️ Architecture
 
@@ -53,7 +54,7 @@ A multi-agent AI system for creating team logos, powered by collaborative AI age
 │                     SLACK CHANNEL                                │
 │                    #logo-creator                                 │
 │                                                                  │
-│   All agents + Arash communicate here (via Slack MCP)           │
+│   All agents + Babak/Arash communicate here (via Slack MCP)           │
 └─────────────────────────────────────────────────────────────────┘
                               │
                               ▼
@@ -96,9 +97,9 @@ Each agent:
 ### PRD Creation Phase
 
 Before development begins:
-1. **Nova interviews Arash** - Gathers requirements through structured questions in Slack
+1. **Nova interviews Babak/Arash** - Gathers requirements through structured questions in Slack
 2. **Nova drafts PRD** - Documents vision, features, and acceptance criteria
-3. **Arash reviews & approves** - PRD finalized before development begins
+3. **Babak/Arash review & approve** - PRD finalized before development begins
 
 ### Hourly Sync Cycle
 

@@ -24,7 +24,8 @@ This document defines the communication standards and protocols for agent intera
 | Pixel | `@pixel` | 🎨 | Pink |
 | Bolt | `@bolt` | ⚡ | Yellow |
 | Scout | `@scout` | 🔍 | Green |
-| Human | `@human` | 👤 | Blue |
+| Babak | `@babak` | 👤 | Blue |
+| Arash | `@arash` | 👤 | Blue |
 
 ## Message Formats
 
@@ -177,13 +178,14 @@ Bolt ──code ready──▶ Scout
 Bolt ◀──bug reports── Scout
 ```
 
-### Human → Agents
+### Babak/Arash → Agents
 ```
-Human can:
+Babak and Arash can:
 - Provide direction to any agent
 - Override agent decisions
 - Approve/reject work
 - Add context and requirements
+- All agents take orders from Babak or Arash
 ```
 
 ## GitHub Integration Protocol
@@ -228,9 +230,9 @@ If Slack/GitHub is unavailable:
 3. Stores pending messages for later delivery
 ```
 
-## Human Escalation
+## Escalation to Babak/Arash
 
-### When to Escalate to Human
+### When to Escalate to Babak or Arash
 - Conflicting requirements
 - Technical decisions with major impact
 - Blockers that can't be resolved by agents
@@ -238,9 +240,9 @@ If Slack/GitHub is unavailable:
 
 ### Escalation Format
 ```
-👤 **Human Input Needed**
+👤 **Babak/Arash Input Needed**
 
-@human We need your input on:
+@babak @arash We need your input on:
 - **Topic**: [Description]
 - **Options**: 
   1. [Option A]

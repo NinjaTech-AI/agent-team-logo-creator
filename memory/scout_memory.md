@@ -51,7 +51,8 @@
 <!-- Observations, patterns, and learnings -->
 
 ## Notes
-- Waiting for Nova to complete PRD interview with Arash
+- Waiting for Nova to complete PRD interview with Babak/Arash
 - Waiting for Bolt to implement features
 - Will create test plans based on PRD acceptance criteria
 - Will report bugs to Bolt, escalate blockers to Nova
+- Taking orders from Babak or Arash

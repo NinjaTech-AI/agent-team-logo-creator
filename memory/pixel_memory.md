@@ -41,6 +41,7 @@
 <!-- Links and notes on design inspiration -->
 
 ## Notes
-- Waiting for Nova to complete PRD interview with Arash
+- Waiting for Nova to complete PRD interview with Babak/Arash
 - Will create high-level UX mockups as images
 - Designs handed off to Bolt for implementation
+- Taking orders from Babak or Arash
