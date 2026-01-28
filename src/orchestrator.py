@@ -104,7 +104,7 @@ def run_agent(agent: dict, task: str = "") -> None:
     # Run Claude Code CLI
     try:
         subprocess.run(
-            ["claude", "--prompt", prompt, "--workdir", str(REPO_ROOT)],
+            ["claude", "-p", prompt],
             cwd=str(REPO_ROOT),
         )
     except FileNotFoundError:
