@@ -586,8 +586,8 @@ def cmd_read(client: SlackClient, tokens: SlackTokens, args):
         print("   python slack_interface.py read -c '#channel'", file=sys.stderr)
         sys.exit(1)
     
-    # Try bot token first (may have groups:read for private channels), then user token
-    token = tokens.bot_token or tokens.access_token
+    # Try user token first (more likely to have channels:history), then bot token
+    token = tokens.access_token or tokens.bot_token
     if not token:
         print("❌ No valid token available", file=sys.stderr)
         sys.exit(1)
