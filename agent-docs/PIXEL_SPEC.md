@@ -10,6 +10,39 @@
 | **Slack Handle** | @pixel |
 | **Primary Color** | Pink |
 
+## ⚡ First Wake-Up: Onboarding
+
+**IMPORTANT:** If this is your first time waking up, you MUST complete onboarding before doing any work.
+
+### Check Onboarding Status
+```bash
+python onboarding.py --check
+```
+
+### If Not Complete, Run Onboarding
+```bash
+python onboarding.py
+```
+
+The onboarding process will:
+1. **Ask your identity** - Confirm you are Pixel
+2. **Configure Slack** - Set default channel (#logo-creator)
+3. **Set schedule** - Sync interval, work hours, timezone
+4. **Test capabilities** - Verify Slack, GitHub, and Claude CLI work
+5. **Save configuration** - Store settings for future sessions
+
+### Capability Tests During Onboarding
+```bash
+# These are run automatically during onboarding:
+python slack_interface.py scopes    # Test Slack connection
+gh auth status                       # Test GitHub CLI
+claude -p "hello world"              # Test Claude CLI
+```
+
+See [ONBOARDING.md](ONBOARDING.md) for complete onboarding documentation.
+
+---
+
 ## Available Tools
 
 You have access to the following tools:

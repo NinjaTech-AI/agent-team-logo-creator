@@ -172,10 +172,35 @@ agent-team-logo-creator/
 
 - Python 3.11+
 - Claude Code CLI
+- GitHub CLI (`gh`)
 - Slack workspace with #logo-creator channel
 - Bot token with required scopes (channels:history, chat:write, etc.)
 
-### Setup
+### First-Time Setup: Onboarding
+
+When an agent wakes up for the first time, it must complete onboarding:
+
+```bash
+# Check if onboarding is needed
+python onboarding.py --check
+
+# Run interactive onboarding
+python onboarding.py
+```
+
+The onboarding process will:
+1. **Ask your identity** - Which agent you are (Nova, Pixel, Bolt, Scout)
+2. **Configure Slack** - Set default channel (#logo-creator)
+3. **Set schedule** - Sync interval, work hours, timezone
+4. **Test capabilities** - Verify all tools work:
+   - `python slack_interface.py scopes` - Test Slack
+   - `gh auth status` - Test GitHub
+   - `claude -p "hello world"` - Test Claude CLI
+5. **Save configuration** - Store settings in `~/.agent_config.json`
+
+See [agent-docs/ONBOARDING.md](agent-docs/ONBOARDING.md) for complete documentation.
+
+### Manual Setup (Alternative)
 
 ```bash
 # Install dependencies
