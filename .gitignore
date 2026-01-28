@@ -2,6 +2,7 @@
 .slack_interface.json
 slack_interface.json
 *.config.json
+.claude.json
 
 # Python
 __pycache__/
