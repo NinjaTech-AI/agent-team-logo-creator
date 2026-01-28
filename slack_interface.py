@@ -289,14 +289,25 @@ class SlackClient:
         return result.get("messages", [])
     
     def send_message(self, token: str, channel: str, text: str, 
-                     thread_ts: Optional[str] = None) -> Dict:
-        """Send a message to a channel"""
+                     thread_ts: Optional[str] = None,
+                     username: Optional[str] = None,
+                     icon_emoji: Optional[str] = None,
+                     icon_url: Optional[str] = None) -> Dict:
+        """Send a message to a channel with optional custom username and icon"""
         params = {
             "channel": channel,
             "text": text
         }
         if thread_ts:
             params["thread_ts"] = thread_ts
+        
+        # Custom bot appearance (only works with bot tokens)
+        if username:
+            params["username"] = username
+        if icon_emoji:
+            params["icon_emoji"] = icon_emoji
+        if icon_url:
+            params["icon_url"] = icon_url
         
         return self._api_call("chat.postMessage", token, params)
     
@@ -391,19 +402,24 @@ def cmd_say(client: SlackClient, tokens: SlackTokens, args):
         print("   python slack_interface.py say -c '#channel' 'message'", file=sys.stderr)
         sys.exit(1)
     
-    token = tokens.access_token or tokens.bot_token
+    # Prefer bot token for sending messages (customizable username/icon)
+    token = tokens.bot_token or tokens.access_token
     if not token:
         print("❌ No valid token available", file=sys.stderr)
         sys.exit(1)
     
     message = args.message
     thread = args.thread if hasattr(args, 'thread') else None
+    username = args.username if hasattr(args, 'username') and args.username else None
+    icon_emoji = args.icon if hasattr(args, 'icon') and args.icon else None
     
     # Show which channel we're sending to
     channel_display = channel if channel.startswith('#') else f"ID:{channel}"
     print(f"\n📤 Sending to {channel_display}...")
+    if username:
+        print(f"   As: {username}")
     
-    result = client.send_message(token, channel, message, thread)
+    result = client.send_message(token, channel, message, thread, username=username, icon_emoji=icon_emoji)
     
     if result.get("ok"):
         print(f"✅ Message sent successfully!")
@@ -713,6 +729,8 @@ Examples:
     say_parser.add_argument('message', help='Message text')
     say_parser.add_argument('-c', '--channel', help='Override default channel')
     say_parser.add_argument('-t', '--thread', help='Thread timestamp for reply')
+    say_parser.add_argument('-u', '--username', help='Custom bot username (e.g., "Nova")')
+    say_parser.add_argument('-i', '--icon', help='Custom emoji icon (e.g., ":robot_face:")')
     
     # Scopes command
     subparsers.add_parser('scopes', help='Show available scopes for each token')
@@ -866,7 +884,10 @@ class SlackInterface:
         return self._token is not None
     
     def say(self, message: str, channel: Optional[str] = None, 
-            thread_ts: Optional[str] = None) -> Dict:
+            thread_ts: Optional[str] = None,
+            username: Optional[str] = None,
+            icon_emoji: Optional[str] = None,
+            icon_url: Optional[str] = None) -> Dict:
         """
         Send a message to the default channel or specified channel.
         
@@ -874,6 +895,9 @@ class SlackInterface:
             message: The message text to send
             channel: Optional channel override (uses default if not specified)
             thread_ts: Optional thread timestamp for replies
+            username: Optional custom bot username (e.g., "Nova", "Pixel")
+            icon_emoji: Optional emoji icon (e.g., ":robot_face:", ":star:")
+            icon_url: Optional URL to custom icon image
             
         Returns:
             Slack API response dict
@@ -895,7 +919,13 @@ class SlackInterface:
                 "Set default with: slack.set_default_channel('#channel-name')"
             )
         
-        return self.client.send_message(self._token, target_channel, message, thread_ts)
+        # Prefer bot token for custom username/icon support
+        token = self.tokens.bot_token or self._token
+        
+        return self.client.send_message(
+            token, target_channel, message, thread_ts,
+            username=username, icon_emoji=icon_emoji, icon_url=icon_url
+        )
     
     def set_default_channel(self, channel: str, config_file: str = DEFAULT_CONFIG_PATH):
         """
@@ -957,7 +987,8 @@ class SlackInterface:
 
 
 # Convenience function for quick messaging
-def say(message: str, channel: Optional[str] = None) -> Dict:
+def say(message: str, channel: Optional[str] = None, 
+        username: Optional[str] = None, icon_emoji: Optional[str] = None) -> Dict:
     """
     Quick function to send a message to the default channel.
     
@@ -965,9 +996,10 @@ def say(message: str, channel: Optional[str] = None) -> Dict:
         from slack_interface import say
         say("Hello from Python!")
         say("Hello!", channel="#general")
+        say("Hello!", username="Nova", icon_emoji=":star:")
     """
     slack = SlackInterface()
-    return slack.say(message, channel)
+    return slack.say(message, channel, username=username, icon_emoji=icon_emoji)
 
 
 if __name__ == "__main__":
