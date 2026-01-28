@@ -5,14 +5,19 @@ Slack Interface CLI
 A command-line tool to interact with Slack using tokens from /dev/shm/mcp-token.
 Automatically detects available scopes and provides various Slack operations.
 
+IMPORTANT: The 'say' command requires an agent identity (nova, pixel, bolt, scout).
+Either specify with -a flag or set a default agent in config.
+
 Usage:
     python slack_interface.py --help
+    python slack_interface.py agents          # List all available agents
     python slack_interface.py scopes          # Show available scopes for each token
     python slack_interface.py channels        # List all channels
     python slack_interface.py users           # List all users
-    python slack_interface.py send <channel> <message>  # Send a message
+    python slack_interface.py send <channel> <message>  # Send a message (no agent)
     python slack_interface.py history <channel>         # Get channel history
-    python slack_interface.py say <message>   # Send to default channel
+    python slack_interface.py say -a nova <message>     # Send as Nova agent
+    python slack_interface.py say <message>             # Send as default agent
     python slack_interface.py config          # Show/set configuration
 
 Configuration:
@@ -22,11 +27,21 @@ Configuration:
     {
         "default_channel": "#logo-creator",
         "default_channel_id": "C0AAAAMBR1R",
+        "default_agent": "nova",
         "workspace": "RenovateAI"
     }
     
     Set default channel:
         python slack_interface.py config --set-channel "#logo-creator"
+    
+    Set default agent:
+        python slack_interface.py config --set-agent nova
+
+Agents:
+    nova  - Product Manager (purple robot)
+    pixel - UX Designer (pink robot)
+    bolt  - Full-Stack Developer (yellow robot)
+    scout - QA Engineer (green robot)
 """
 
 import argparse
@@ -98,6 +113,7 @@ class SlackConfig:
     """Configuration for Slack Interface"""
     default_channel: Optional[str] = None
     default_channel_id: Optional[str] = None
+    default_agent: Optional[str] = None  # Default agent for say command (nova, pixel, bolt, scout)
     workspace: Optional[str] = None
     
     @classmethod
@@ -110,6 +126,7 @@ class SlackConfig:
                     data = json.load(f)
                 config.default_channel = data.get('default_channel')
                 config.default_channel_id = data.get('default_channel_id')
+                config.default_agent = data.get('default_agent')
                 config.workspace = data.get('workspace')
         except Exception as e:
             print(f"⚠️ Warning: Could not load config: {e}", file=sys.stderr)
@@ -120,6 +137,7 @@ class SlackConfig:
         data = {
             'default_channel': self.default_channel,
             'default_channel_id': self.default_channel_id,
+            'default_agent': self.default_agent,
             'workspace': self.workspace
         }
         # Remove None values
@@ -435,6 +453,20 @@ def cmd_config(client: SlackClient, tokens: SlackTokens, args):
         config.save(args.config_file)
         return
     
+    # Set default agent
+    if hasattr(args, 'set_agent') and args.set_agent:
+        agent = args.set_agent.lower()
+        if agent not in AGENT_AVATARS:
+            print(f"❌ Invalid agent: {agent}", file=sys.stderr)
+            print(f"   Valid agents: {', '.join(AGENT_AVATARS.keys())}", file=sys.stderr)
+            sys.exit(1)
+        
+        config.default_agent = agent
+        agent_info = AGENT_AVATARS[agent]
+        print(f"✅ Default agent set to: {agent_info['name']} ({agent_info['role']})")
+        config.save(args.config_file)
+        return
+    
     # Show current configuration
     print("\n" + "=" * 60)
     print("⚙️  SLACK INTERFACE CONFIGURATION")
@@ -443,17 +475,49 @@ def cmd_config(client: SlackClient, tokens: SlackTokens, args):
     print(f"\n📋 Current Settings:")
     print(f"   Default Channel: {config.default_channel or '(not set)'}")
     print(f"   Default Channel ID: {config.default_channel_id or '(not set)'}")
+    if config.default_agent:
+        agent_info = AGENT_AVATARS.get(config.default_agent, {})
+        print(f"   Default Agent: {config.default_agent} ({agent_info.get('name', '')} - {agent_info.get('role', '')})")
+    else:
+        print(f"   Default Agent: (not set)")
     print(f"   Workspace: {config.workspace or '(not set)'}")
     
-    print(f"\n💡 To set default channel:")
+    print(f"\n💡 Configuration Commands:")
     print(f"   python slack_interface.py config --set-channel '#channel-name'")
-    print(f"   python slack_interface.py config --set-channel 'C0AAAAMBR1R'")
+    print(f"   python slack_interface.py config --set-agent nova")
+    print(f"\n🤖 Available Agents: {', '.join(AGENT_AVATARS.keys())}")
     print("=" * 60 + "\n")
 
 
 def cmd_say(client: SlackClient, tokens: SlackTokens, args):
-    """Send a message to the default channel"""
+    """Send a message to the default channel as a specific agent"""
     config = SlackConfig.load(args.config_file)
+    
+    # Determine agent: CLI arg > config default (REQUIRED)
+    agent = None
+    if hasattr(args, 'agent') and args.agent:
+        agent = args.agent.lower()
+    elif config.default_agent:
+        agent = config.default_agent.lower()
+    
+    if not agent:
+        print("❌ No agent specified and no default agent configured", file=sys.stderr)
+        print("\n🤖 The 'say' command requires an agent identity.", file=sys.stderr)
+        print("\n💡 To specify an agent:", file=sys.stderr)
+        print("   python slack_interface.py say -a nova 'message'", file=sys.stderr)
+        print("   python slack_interface.py say -a pixel 'message'", file=sys.stderr)
+        print("   python slack_interface.py say -a bolt 'message'", file=sys.stderr)
+        print("   python slack_interface.py say -a scout 'message'", file=sys.stderr)
+        print("\n💡 Or set a default agent:", file=sys.stderr)
+        print("   python slack_interface.py config --set-agent nova", file=sys.stderr)
+        print(f"\n🤖 Available agents: {', '.join(AGENT_AVATARS.keys())}", file=sys.stderr)
+        sys.exit(1)
+    
+    # Validate agent
+    if agent not in AGENT_AVATARS:
+        print(f"❌ Invalid agent: {agent}", file=sys.stderr)
+        print(f"   Valid agents: {', '.join(AGENT_AVATARS.keys())}", file=sys.stderr)
+        sys.exit(1)
     
     # Determine channel: CLI arg > config default
     channel = None
@@ -467,7 +531,7 @@ def cmd_say(client: SlackClient, tokens: SlackTokens, args):
         print("\n💡 To set a default channel:", file=sys.stderr)
         print("   python slack_interface.py config --set-channel '#channel-name'", file=sys.stderr)
         print("\n   Or specify channel with -c:", file=sys.stderr)
-        print("   python slack_interface.py say -c '#channel' 'message'", file=sys.stderr)
+        print("   python slack_interface.py say -a nova -c '#channel' 'message'", file=sys.stderr)
         sys.exit(1)
     
     # Prefer bot token for sending messages (customizable username/icon)
@@ -478,26 +542,18 @@ def cmd_say(client: SlackClient, tokens: SlackTokens, args):
     
     message = args.message
     thread = args.thread if hasattr(args, 'thread') else None
-    username = args.username if hasattr(args, 'username') and args.username else None
-    icon_emoji = args.icon if hasattr(args, 'icon') and args.icon else None
-    icon_url = None
     
-    # If agent is specified, use their avatar
-    if hasattr(args, 'agent') and args.agent:
-        agent_info = get_agent_avatar(args.agent)
-        if agent_info:
-            username = agent_info['name']
-            icon_url = agent_info['icon_url']
-            # Don't use emoji if we have a custom avatar URL
-            icon_emoji = None
+    # Get agent avatar info
+    agent_info = get_agent_avatar(agent)
+    username = agent_info['name']
+    icon_url = agent_info['icon_url']
+    icon_emoji = None  # Don't use emoji when we have custom avatar URL
     
     # Show which channel we're sending to
     channel_display = channel if channel.startswith('#') else f"ID:{channel}"
     print(f"\n📤 Sending to {channel_display}...")
-    if username:
-        print(f"   As: {username}")
-    if icon_url:
-        print(f"   Avatar: Custom image")
+    print(f"   As: {username} ({agent_info['role']})")
+    print(f"   Avatar: {agent_info['emoji']} Custom image")
     
     result = client.send_message(token, channel, message, thread, 
                                   username=username, icon_emoji=icon_emoji, icon_url=icon_url)
@@ -776,20 +832,29 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
+  %(prog)s agents                    List all available agents
   %(prog)s scopes                    Show available scopes for each token
   %(prog)s channels                  List all channels
   %(prog)s channels -t public_channel  List only public channels
   %(prog)s users                     List all users
   %(prog)s history C048ANAEC8P       Get history for channel by ID
   %(prog)s history "#general"        Get history for channel by name
-  %(prog)s send "#general" "Hello!"  Send a message to specific channel
-  %(prog)s say "Hello!"              Send a message to default channel
-  %(prog)s say -c "#other" "Hi"      Send to different channel
+  %(prog)s send "#general" "Hello!"  Send a message (no agent identity)
+  %(prog)s say -a nova "Hello!"      Send as Nova agent to default channel
+  %(prog)s say -a bolt "Building..."  Send as Bolt agent
+  %(prog)s say "Hello!"              Send as default agent (if configured)
   %(prog)s join "#logo-creator"      Join a channel
   %(prog)s create logo-creator       Create a new channel
   %(prog)s info "#general"           Get channel info
   %(prog)s config                    Show current configuration
   %(prog)s config --set-channel "#logo-creator"  Set default channel
+  %(prog)s config --set-agent nova   Set default agent
+
+Agents (required for 'say' command):
+  nova   - Product Manager (purple robot)
+  pixel  - UX Designer (pink robot)
+  bolt   - Full-Stack Developer (yellow robot)
+  scout  - QA Engineer (green robot)
         """
     )
     
@@ -807,16 +872,16 @@ Examples:
     config_parser = subparsers.add_parser('config', help='Show or set configuration')
     config_parser.add_argument('--set-channel', metavar='CHANNEL',
                                help='Set default channel (e.g., "#logo-creator" or "C0AAAAMBR1R")')
+    config_parser.add_argument('--set-agent', metavar='AGENT',
+                               help='Set default agent (nova, pixel, bolt, scout)')
     
-    # Say command (send to default channel)
-    say_parser = subparsers.add_parser('say', help='Send message to default channel')
+    # Say command (send to default channel as a specific agent)
+    say_parser = subparsers.add_parser('say', help='Send message as an agent (agent required)')
     say_parser.add_argument('message', help='Message text')
+    say_parser.add_argument('-a', '--agent', choices=['nova', 'pixel', 'bolt', 'scout'],
+                           help='Agent to send as (required if no default agent set)')
     say_parser.add_argument('-c', '--channel', help='Override default channel')
     say_parser.add_argument('-t', '--thread', help='Thread timestamp for reply')
-    say_parser.add_argument('-u', '--username', help='Custom bot username (e.g., "Nova")')
-    say_parser.add_argument('-i', '--icon', help='Custom emoji icon (e.g., ":robot_face:")')
-    say_parser.add_argument('-a', '--agent', choices=['nova', 'pixel', 'bolt', 'scout'],
-                           help='Send as a specific agent (uses their avatar and name)')
     
     # Scopes command
     subparsers.add_parser('scopes', help='Show available scopes for each token')

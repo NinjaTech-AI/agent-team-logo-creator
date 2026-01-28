@@ -6,6 +6,7 @@ A powerful command-line tool and Python API for interacting with Slack workspace
 
 - 🔑 **Automatic Token Detection** - Reads tokens from `/dev/shm/mcp-token` or environment variables
 - 📢 **Default Channel Support** - Configure a default channel for quick messaging
+- 🤖 **Agent Avatars** - Send messages as specific agents with custom avatars
 - 🐍 **Python API** - Use as a library in your Python scripts
 - 🔍 **Scope Detection** - Shows available permissions for each token type
 - 💬 **Full Slack Operations** - Send messages, list channels/users, get history, and more
@@ -31,21 +32,49 @@ pip install requests
 
 Click the **'Connect'** button in the chat interface to link your Slack workspace. This automatically provides the necessary authentication tokens.
 
-### 2. Set Default Channel
+### 2. Set Default Channel and Agent
 
 ```bash
 # Set your default communication channel
 python slack_interface.py config --set-channel "#logo-creator"
+
+# Set your default agent (required for 'say' command)
+python slack_interface.py config --set-agent nova
 ```
 
 ### 3. Send Messages
 
 ```bash
-# Send to default channel
+# Send as default agent to default channel
 python slack_interface.py say "Hello team!"
 
+# Send as specific agent
+python slack_interface.py say -a bolt "Building the feature now!"
+
 # Send to specific channel
-python slack_interface.py say -c "#general" "Hello everyone!"
+python slack_interface.py say -a pixel -c "#general" "Design review ready!"
+```
+
+## Agents
+
+The `say` command **requires an agent identity**. Either specify with `-a` flag or set a default agent.
+
+| Agent | Role | Emoji | Color |
+|-------|------|-------|-------|
+| `nova` | Product Manager | 🌟 | Purple |
+| `pixel` | UX Designer | 🎨 | Pink |
+| `bolt` | Full-Stack Developer | ⚡ | Yellow |
+| `scout` | QA Engineer | 🔍 | Green |
+
+```bash
+# List all agents
+python slack_interface.py agents
+
+# Send as specific agent
+python slack_interface.py say -a nova "Sprint planning at 2pm"
+python slack_interface.py say -a pixel "Mockups are ready for review"
+python slack_interface.py say -a bolt "PR submitted for review"
+python slack_interface.py say -a scout "Found 3 bugs in testing"
 ```
 
 ## Configuration
@@ -58,18 +87,22 @@ The configuration is stored at `~/.slack_interface.json`:
 {
   "default_channel": "#logo-creator",
   "default_channel_id": "C0AAAAMBR1R",
+  "default_agent": "nova",
   "workspace": "RenovateAI"
 }
 ```
 
-### Setting Default Channel
+### Setting Defaults
 
 ```bash
-# By channel name
+# Set default channel (by name)
 python slack_interface.py config --set-channel "#logo-creator"
 
-# By channel ID
+# Set default channel (by ID)
 python slack_interface.py config --set-channel "C0AAAAMBR1R"
+
+# Set default agent
+python slack_interface.py config --set-agent nova
 
 # View current config
 python slack_interface.py config
@@ -91,21 +124,31 @@ python slack_interface.py config
 
 # Set default channel
 python slack_interface.py config --set-channel "#channel-name"
+
+# Set default agent
+python slack_interface.py config --set-agent nova
 ```
 
-### Messaging
+### Messaging with Agents
 
 ```bash
-# Send to default channel (quick!)
+# Send as default agent to default channel
 python slack_interface.py say "Your message here"
 
-# Send to default channel with channel override
-python slack_interface.py say -c "#other-channel" "Message"
+# Send as specific agent
+python slack_interface.py say -a bolt "Message from Bolt"
+
+# Send to different channel
+python slack_interface.py say -a nova -c "#other-channel" "Message"
 
 # Reply in thread
-python slack_interface.py say -t "1234567890.123456" "Thread reply"
+python slack_interface.py say -a scout -t "1234567890.123456" "Thread reply"
+```
 
-# Send to specific channel (explicit)
+### Generic Messaging (No Agent)
+
+```bash
+# Send to specific channel without agent identity
 python slack_interface.py send "#channel" "Message"
 ```
 
@@ -167,22 +210,16 @@ python slack_interface.py scopes
 ### Basic Usage
 
 ```python
-from slack_interface import SlackInterface, say
+from slack_interface import SlackInterface
 
-# Quick one-liner to send to default channel
-say("Hello from Python!")
-
-# Or use the full interface
+# Initialize
 slack = SlackInterface()
 
-# Send to default channel
+# Send as default agent to default channel
 slack.say("Hello team!")
 
-# Send to specific channel
-slack.say("Hello!", channel="#general")
-
-# Reply in thread
-slack.say("Thread reply", thread_ts="1234567890.123456")
+# Send with custom username and icon
+slack.say("Hello!", username="Nova", icon_url="https://example.com/nova.png")
 ```
 
 ### Full API Example
@@ -219,8 +256,12 @@ messages = slack.get_history(limit=10)
 for msg in messages:
     print(f"{msg.get('user')}: {msg.get('text')}")
 
-# Send message
-result = slack.say("Hello from the API!")
+# Send message with custom identity
+result = slack.say(
+    "Hello from the API!",
+    username="Nova",
+    icon_url="https://sites.super.betamyninja.ai/.../nova.png"
+)
 if result.get('ok'):
     print(f"Message sent! ts={result['ts']}")
 
@@ -299,6 +340,22 @@ No Slack tokens found. Please connect your Slack workspace first.
 
 **Solution**: Click the 'Connect' button in the chat interface.
 
+### "No agent specified" Error
+
+```
+❌ No agent specified and no default agent configured
+
+🤖 The 'say' command requires an agent identity.
+
+💡 To specify an agent:
+   python slack_interface.py say -a nova 'message'
+```
+
+**Solution**: Either specify an agent with `-a` or set a default:
+```bash
+python slack_interface.py config --set-agent nova
+```
+
 ### "No default channel configured" Error
 
 **Solution**: Set a default channel:
@@ -335,29 +392,30 @@ python slack_interface.py scopes
 # 2. Set default channel for agent communication
 python slack_interface.py config --set-channel "#logo-creator"
 
-# 3. Verify setup
+# 3. Set default agent
+python slack_interface.py config --set-agent nova
+
+# 4. Verify setup
 python slack_interface.py config
 
-# 4. Test messaging
-python slack_interface.py say "🤖 Agent is online and ready!"
+# 5. Test messaging
+python slack_interface.py say "🤖 Nova is online and ready!"
 ```
 
-### Daily Standup Bot
+### Multi-Agent Communication
 
-```python
-from slack_interface import SlackInterface
+```bash
+# Nova announces sprint planning
+python slack_interface.py say -a nova "📋 Sprint planning starts in 10 minutes!"
 
-slack = SlackInterface()
-slack.set_default_channel("#standups")
+# Pixel shares design updates
+python slack_interface.py say -a pixel "🎨 New mockups uploaded to Figma"
 
-slack.say("""
-🌅 *Daily Standup*
+# Bolt reports development progress
+python slack_interface.py say -a bolt "⚡ Feature branch merged to main"
 
-Good morning team! Please share:
-• What you did yesterday
-• What you're doing today
-• Any blockers?
-""")
+# Scout reports test results
+python slack_interface.py say -a scout "🔍 All tests passing - ready for release"
 ```
 
 ### Channel Monitor
