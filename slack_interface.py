@@ -586,8 +586,8 @@ def cmd_read(client: SlackClient, tokens: SlackTokens, args):
         print("   python slack_interface.py read -c '#channel'", file=sys.stderr)
         sys.exit(1)
     
-    # Try user token first (more likely to have channels:history), then bot token
-    token = tokens.access_token or tokens.bot_token
+    # Try bot token first (has channels:history scope), then user token
+    token = tokens.bot_token or tokens.access_token
     if not token:
         print("❌ No valid token available", file=sys.stderr)
         sys.exit(1)
@@ -602,11 +602,11 @@ def cmd_read(client: SlackClient, tokens: SlackTokens, args):
     
     if not messages:
         print("📭 No messages found or channel is empty")
-        print("\n💡 If you're seeing a 'missing_scope' error, the Slack app needs")
-        print("   the 'channels:history' scope to read public channel messages,")
-        print("   or 'groups:history' for private channels.")
-        print("\n   Please add these scopes in your Slack App settings:")
-        print("   https://api.slack.com/apps → Your App → OAuth & Permissions")
+        print("\n💡 Troubleshooting:")
+        print("   • 'missing_scope' error: Add 'channels:history' scope to your Slack app")
+        print("   • 'not_in_channel' error: Invite the bot to the channel first:")
+        print("     → Go to the channel in Slack and type: /invite @superninja")
+        print("   • Or add 'channels:join' scope to allow the bot to join automatically")
         return
     
     print(f"\n💬 Last {len(messages)} messages:\n")
