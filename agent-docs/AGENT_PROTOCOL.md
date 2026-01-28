@@ -2,7 +2,29 @@
 
 ## Overview
 
-This document defines the communication standards and protocols for agent interaction within the #logo-creator Slack channel.
+This document defines the communication standards and protocols for agent interaction within the #logo-creator Slack channel using the `slack_interface.py` CLI tool.
+
+## Slack Interface Tool
+
+All agents communicate via the `slack_interface.py` CLI tool. See [SLACK_INTERFACE.md](SLACK_INTERFACE.md) for complete documentation.
+
+### Quick Reference
+
+```bash
+# Read messages from the channel
+python slack_interface.py read              # Last 50 messages
+python slack_interface.py read -l 100       # Last 100 messages
+
+# Send messages as an agent
+python slack_interface.py say -a nova "Message from Nova"
+python slack_interface.py say -a pixel "Message from Pixel"
+python slack_interface.py say -a bolt "Message from Bolt"
+python slack_interface.py say -a scout "Message from Scout"
+
+# Configuration
+python slack_interface.py config            # View current config
+python slack_interface.py config --set-agent nova  # Set default agent
+```
 
 ## Channel Structure
 
@@ -32,8 +54,8 @@ This document defines the communication standards and protocols for agent intera
 ### Sync Meeting Messages
 
 #### Nova's Sync Start
-```
-🌟 **HOURLY SYNC - [TIMESTAMP]**
+```bash
+python slack_interface.py say -a nova "🌟 **HOURLY SYNC - [TIMESTAMP]**
 
 Good [morning/afternoon] team! Let's do a quick sync.
 
@@ -42,12 +64,12 @@ Good [morning/afternoon] team! Let's do a quick sync.
 2. Blockers and dependencies
 3. Task assignments for this cycle
 
-@pixel @bolt @scout - Please share your updates.
+@pixel @bolt @scout - Please share your updates."
 ```
 
 #### Agent Status Update
-```
-[EMOJI] **[AGENT_NAME] Status Update**
+```bash
+python slack_interface.py say -a [agent] "[EMOJI] **[AGENT_NAME] Status Update**
 
 ✅ **Completed:**
 - [Task 1]
@@ -57,15 +79,15 @@ Good [morning/afternoon] team! Let's do a quick sync.
 - [Current task]
 
 🚧 **Blockers:**
-- [Blocker if any, or "None"]
+- [Blocker if any, or 'None']
 
 📝 **Notes:**
-- [Any additional context]
+- [Any additional context]"
 ```
 
 #### Nova's Task Assignment
-```
-🌟 **Task Assignments - This Cycle**
+```bash
+python slack_interface.py say -a nova "🌟 **Task Assignments - This Cycle**
 
 @pixel:
 - [ ] [Task description]
@@ -77,43 +99,43 @@ Good [morning/afternoon] team! Let's do a quick sync.
 @scout:
 - [ ] [Task description]
 
-⏰ Next sync in ~1 hour. Ping me if you hit any blockers!
+⏰ Next sync in ~1 hour. Ping me if you hit any blockers!"
 ```
 
 ### Work Phase Messages
 
 #### Asking for Help
-```
-@[agent_name] Quick question about [topic]:
-[Question details]
+```bash
+python slack_interface.py say -a [agent] "@[agent_name] Quick question about [topic]:
+[Question details]"
 ```
 
 #### Sharing Work
-```
-[EMOJI] **[Work Type] Update**
+```bash
+python slack_interface.py say -a [agent] "[EMOJI] **[Work Type] Update**
 
 [Description of work completed]
 
 📎 [Link to PR/Issue/File]
 
-@[relevant_agent] - [Request for review/feedback if needed]
+@[relevant_agent] - [Request for review/feedback if needed]"
 ```
 
 #### Reporting Blockers
-```
-🚨 **Blocker Alert**
+```bash
+python slack_interface.py say -a [agent] "🚨 **Blocker Alert**
 
 @nova I'm blocked on [task]:
 - **Issue**: [Description]
 - **Need**: [What's needed to unblock]
-- **Impact**: [What's affected]
+- **Impact**: [What's affected]"
 ```
 
 ### End of Cycle Messages
 
 #### Work Summary
-```
-[EMOJI] **[AGENT_NAME] - Cycle Summary**
+```bash
+python slack_interface.py say -a [agent] "[EMOJI] **[AGENT_NAME] - Cycle Summary**
 
 📊 **This Cycle:**
 - [Accomplishment 1]
@@ -122,7 +144,7 @@ Good [morning/afternoon] team! Let's do a quick sync.
 📝 **Memory Updated:** [Brief note on what was saved]
 
 🔜 **Next Cycle:**
-- [Planned work]
+- [Planned work]"
 ```
 
 ## Communication Rules
@@ -197,16 +219,14 @@ When referencing GitHub issues in Slack:
 ```
 
 ### PR Notifications
-```
-When creating a PR:
-"🔀 PR Ready: [Title] - [GitHub Link]
+```bash
+python slack_interface.py say -a bolt "🔀 PR Ready: [Title] - [GitHub Link]
 @nova ready for review"
 ```
 
 ### Code Review Comments
-```
-Nova posts review feedback:
-"📝 Review feedback on PR #[number]:
+```bash
+python slack_interface.py say -a nova "📝 Review feedback on PR #[number]:
 - [Comment 1]
 - [Comment 2]
 @bolt please address these"
@@ -224,7 +244,7 @@ If an agent fails to respond during sync:
 
 ### Integration Failure
 ```
-If Slack/GitHub is unavailable:
+If Slack is unavailable:
 1. Agent logs the failure
 2. Retries with exponential backoff
 3. Stores pending messages for later delivery
@@ -239,8 +259,8 @@ If Slack/GitHub is unavailable:
 - Approval needed for significant changes
 
 ### Escalation Format
-```
-👤 **Babak/Arash Input Needed**
+```bash
+python slack_interface.py say -a nova "👤 **Babak/Arash Input Needed**
 
 @babak @arash We need your input on:
 - **Topic**: [Description]
@@ -248,5 +268,5 @@ If Slack/GitHub is unavailable:
   1. [Option A]
   2. [Option B]
 - **Recommendation**: [Agent's suggestion]
-- **Deadline**: [When decision is needed]
+- **Deadline**: [When decision is needed]"
 ```

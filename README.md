@@ -33,12 +33,12 @@ A multi-agent AI system for creating team logos, powered by collaborative AI age
                               │
                               ▼
 ┌─────────────────────────────────────────────────────────────────┐
-│                      CLAUDE CODE + MCPs                          │
+│                         TOOLS                                    │
 │                                                                  │
-│   ┌─────────────┐  ┌─────────────┐  ┌─────────────┐            │
-│   │  Slack MCP  │  │ Image Gen   │  │  Internet   │            │
-│   │ (all agents)│  │ (Pixel only)│  │  Search MCP │            │
-│   └─────────────┘  └─────────────┘  └─────────────┘            │
+│   ┌─────────────────┐  ┌─────────────┐  ┌─────────────┐         │
+│   │slack_interface  │  │ Image Gen   │  │  Internet   │         │
+│   │  (all agents)   │  │(Pixel only) │  │   Search    │         │
+│   └─────────────────┘  └─────────────┘  └─────────────┘         │
 └─────────────────────────────────────────────────────────────────┘
                               │
                               ▼
@@ -54,7 +54,7 @@ A multi-agent AI system for creating team logos, powered by collaborative AI age
 │                     SLACK CHANNEL                                │
 │                    #logo-creator                                 │
 │                                                                  │
-│   All agents + Babak/Arash communicate here (via Slack MCP)           │
+│   All agents + Babak/Arash communicate here                     │
 └─────────────────────────────────────────────────────────────────┘
                               │
                               ▼
@@ -66,15 +66,38 @@ A multi-agent AI system for creating team logos, powered by collaborative AI age
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-## 🔧 MCP Tools
+## 🔧 Tools
 
-Claude Code has these MCPs pre-configured:
+Agents have access to these tools:
 
-| MCP | Available To | Purpose |
-|-----|--------------|---------|
-| **Slack MCP** | All agents | Communication in #logo-creator |
-| **Image Generation MCP** | Pixel | Create UI mockups, wireframes, designs |
-| **Internet Search MCP** | All agents | Research, documentation, best practices |
+| Tool | Available To | Purpose |
+|------|--------------|---------|
+| **slack_interface.py** | All agents | Communication in #logo-creator |
+| **Image Generation** | Pixel | Create UI mockups, wireframes, designs |
+| **Internet Search** | All agents | Research, documentation, best practices |
+| **GitHub CLI** | All agents | Code commits, issues, PRs |
+
+### Slack Interface
+
+All agent communication uses the `slack_interface.py` CLI tool:
+
+```bash
+# Read messages from the channel
+python slack_interface.py read              # Last 50 messages
+python slack_interface.py read -l 100       # Last 100 messages
+
+# Send messages as an agent
+python slack_interface.py say -a nova "Sprint planning at 2pm!"
+python slack_interface.py say -a pixel "Design mockups ready"
+python slack_interface.py say -a bolt "PR submitted for review"
+python slack_interface.py say -a scout "All tests passing"
+
+# Configuration
+python slack_interface.py config --set-channel "#logo-creator"
+python slack_interface.py config --set-agent nova
+```
+
+See [agent-docs/SLACK_INTERFACE.md](agent-docs/SLACK_INTERFACE.md) for complete documentation.
 
 ## 🔄 How It Works
 
@@ -90,7 +113,7 @@ The orchestrator runs Claude Code **4 times per sync cycle**:
 Each agent:
 - Gets their behavior/personality from their spec MD file
 - Reads their memory file for previous context
-- Communicates via Slack #logo-creator channel
+- Communicates via Slack #logo-creator channel using `slack_interface.py`
 - Updates their memory file after work
 - Commits work to GitHub
 
@@ -114,11 +137,12 @@ Before development begins:
 agent-team-logo-creator/
 ├── README.md
 ├── requirements.txt
-├── .env.example
+├── slack_interface.py       # Slack communication CLI tool
 │
 ├── agent-docs/              # Agent specifications (prompts)
 │   ├── ARCHITECTURE.md
 │   ├── AGENT_PROTOCOL.md
+│   ├── SLACK_INTERFACE.md   # Slack tool documentation
 │   ├── NOVA_SPEC.md         # Nova's behavior & personality
 │   ├── PIXEL_SPEC.md        # Pixel's behavior & personality
 │   ├── BOLT_SPEC.md         # Bolt's behavior & personality
@@ -131,6 +155,12 @@ agent-team-logo-creator/
 │   ├── bolt_memory.md
 │   └── scout_memory.md
 │
+├── avatars/                 # Agent avatar images
+│   ├── nova.png
+│   ├── pixel.png
+│   ├── bolt.png
+│   └── scout.png
+│
 └── src/                     # Orchestrator code
     ├── orchestrator.py      # Main orchestrator
     └── config.py            # Configuration
@@ -142,7 +172,23 @@ agent-team-logo-creator/
 
 - Python 3.11+
 - Claude Code CLI
-- Each agent runs in its own sandbox VM with pre-configured MCPs
+- Slack workspace with #logo-creator channel
+- Bot token with required scopes (channels:history, chat:write, etc.)
+
+### Setup
+
+```bash
+# Install dependencies
+pip install -r requirements.txt
+
+# Configure Slack
+python slack_interface.py config --set-channel "#logo-creator"
+python slack_interface.py config --set-agent nova
+
+# Test Slack connection
+python slack_interface.py scopes
+python slack_interface.py read
+```
 
 ### Usage
 
@@ -157,14 +203,6 @@ python src/orchestrator.py --agent Pixel --task "Create homepage wireframe"
 # List available agents
 python src/orchestrator.py --list
 ```
-
-### Environment
-
-Each agent's sandbox VM has these MCPs pre-configured:
-- **Slack MCP** - All agents
-- **Image Generation MCP** - Pixel only  
-- **Internet Search MCP** - All agents
-- **GitHub access** - All agents
 
 ## 📝 Customizing Agents
 

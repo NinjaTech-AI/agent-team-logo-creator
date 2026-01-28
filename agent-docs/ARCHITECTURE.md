@@ -26,7 +26,7 @@ Four specialized agents, each with distinct responsibilities:
 
 ### 2. Communication Layer
 
-All inter-agent and human-agent communication flows through Slack:
+All inter-agent and human-agent communication flows through Slack using the `slack_interface.py` CLI tool:
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
@@ -102,8 +102,8 @@ The orchestrator manages the agent lifecycle:
      │                │                │                │
      ▼                ▼                ▼                ▼
  Orchestrator    Slack Channel    Independent      GitHub +
- triggers all    #logo-creator    task execution   Memory files
- agents          Nova leads
+triggers all    #logo-creator    task execution   Memory files
+agents          Nova leads
 ```
 
 ### Detailed Sync Flow
@@ -138,62 +138,78 @@ Time: T+55 (Wrap Up)
 
 ## Integration Points
 
-### MCP Tools Available
+### Tools Available
 
-All agents run in Claude Code with pre-configured MCPs:
+All agents have access to the following tools:
 
-| MCP | Available To | Capabilities |
-|-----|--------------|--------------|
-| **Slack MCP** | All agents | Post messages, read history, reply in threads, upload files |
-| **Image Generation MCP** | Pixel only | Generate UI mockups, wireframes, design concepts |
-| **Internet Search MCP** | All agents | Web search for research, documentation, best practices |
+| Tool | Available To | Capabilities |
+|------|--------------|--------------|
+| **slack_interface.py** | All agents | Send/read messages, list channels/users, manage communication |
+| **Image Generation** | Pixel only | Generate UI mockups, wireframes, design concepts |
+| **Internet Search** | All agents | Web search for research, documentation, best practices |
+| **GitHub CLI** | All agents | Code commits, issues, PRs, reviews |
 
-### Slack MCP Usage
+### Slack Interface Usage
+
+The `slack_interface.py` CLI tool provides all Slack communication capabilities:
+
+```bash
+# Read messages from default channel
+python slack_interface.py read
+python slack_interface.py read -l 50  # Last 50 messages
+
+# Send messages as an agent
+python slack_interface.py say -a nova "Sprint planning at 2pm"
+python slack_interface.py say -a pixel "Design mockups ready for review"
+python slack_interface.py say -a bolt "PR submitted for review"
+python slack_interface.py say -a scout "All tests passing"
+
+# Configuration
+python slack_interface.py config --set-channel "#logo-creator"
+python slack_interface.py config --set-agent nova
+
+# Other operations
+python slack_interface.py channels    # List channels
+python slack_interface.py users       # List users
+python slack_interface.py history "#channel"  # Get specific channel history
+```
+
+See [SLACK_INTERFACE.md](SLACK_INTERFACE.md) for complete documentation.
+
+### Image Generation Usage (Pixel)
 
 ```
-# Key capabilities via Slack MCP
-- Post messages to #logo-creator
-- Read channel history
-- Reply in threads
-- Upload files (designs, reports)
-- Mention other agents (@nova, @pixel, etc.)
-```
-
-### Image Generation MCP Usage (Pixel)
-
-```
-# Key capabilities via Image Generation MCP
+# Key capabilities via Image Generation
 - Generate high-fidelity UI mockups
 - Create wireframes and layouts
 - Design visual concepts
 - Produce component designs
 ```
 
-### Internet Search MCP Usage
+### Internet Search Usage
 
 ```
-# Key capabilities via Internet Search MCP
+# Key capabilities via Internet Search
 - Research best practices
 - Find documentation
 - Competitor analysis
 - Look up error solutions
 ```
 
-### GitHub Integration (via Claude Code)
+### GitHub Integration (via CLI)
 
-```
-# Key capabilities via Claude Code
-- Create/update issues
-- Create pull requests
-- Post review comments
-- Merge PRs (Nova only)
-- Read repository state
-- Commit code changes
+```bash
+# Key capabilities via GitHub CLI
+gh issue create --title "Bug: ..." --body "..."
+gh pr create --title "Feature: ..." --body "..."
+gh pr review --approve
+git commit -m "feat: ..."
+git push origin main
 ```
 
 ## Security Considerations
 
-1. **Token Management**: All API tokens stored in environment variables
+1. **Token Management**: All API tokens stored securely in `/dev/shm/mcp-token`
 2. **Least Privilege**: Each agent has only necessary permissions
 3. **Audit Trail**: All actions logged in Slack and GitHub
 4. **Human Override**: Humans can intervene at any point via Slack
