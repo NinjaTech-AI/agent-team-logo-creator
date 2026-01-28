@@ -12,6 +12,21 @@ Usage:
     python slack_interface.py users           # List all users
     python slack_interface.py send <channel> <message>  # Send a message
     python slack_interface.py history <channel>         # Get channel history
+    python slack_interface.py say <message>   # Send to default channel
+    python slack_interface.py config          # Show/set configuration
+
+Configuration:
+    The tool uses a config file at ~/.slack_interface.json or can be specified
+    with --config. The config file supports:
+    
+    {
+        "default_channel": "#logo-creator",
+        "default_channel_id": "C0AAAAMBR1R",
+        "workspace": "RenovateAI"
+    }
+    
+    Set default channel:
+        python slack_interface.py config --set-channel "#logo-creator"
 """
 
 import argparse
@@ -20,8 +35,56 @@ import os
 import sys
 import requests
 from typing import Optional, Dict, List, Any
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
+from pathlib import Path
+
+
+# ============================================================================
+# Configuration Management
+# ============================================================================
+
+DEFAULT_CONFIG_PATH = os.path.expanduser("~/.slack_interface.json")
+
+@dataclass
+class SlackConfig:
+    """Configuration for Slack Interface"""
+    default_channel: Optional[str] = None
+    default_channel_id: Optional[str] = None
+    workspace: Optional[str] = None
+    
+    @classmethod
+    def load(cls, filepath: str = DEFAULT_CONFIG_PATH) -> 'SlackConfig':
+        """Load configuration from file"""
+        config = cls()
+        try:
+            if os.path.exists(filepath):
+                with open(filepath, 'r') as f:
+                    data = json.load(f)
+                config.default_channel = data.get('default_channel')
+                config.default_channel_id = data.get('default_channel_id')
+                config.workspace = data.get('workspace')
+        except Exception as e:
+            print(f"⚠️ Warning: Could not load config: {e}", file=sys.stderr)
+        return config
+    
+    def save(self, filepath: str = DEFAULT_CONFIG_PATH):
+        """Save configuration to file"""
+        data = {
+            'default_channel': self.default_channel,
+            'default_channel_id': self.default_channel_id,
+            'workspace': self.workspace
+        }
+        # Remove None values
+        data = {k: v for k, v in data.items() if v is not None}
+        
+        with open(filepath, 'w') as f:
+            json.dump(data, f, indent=2)
+        print(f"✅ Configuration saved to {filepath}")
+    
+    def get_default_channel(self) -> Optional[str]:
+        """Get the default channel (ID preferred, then name)"""
+        return self.default_channel_id or self.default_channel
 
 
 # ============================================================================
@@ -259,6 +322,97 @@ class SlackClient:
 # ============================================================================
 # CLI Commands
 # ============================================================================
+
+def cmd_config(client: SlackClient, tokens: SlackTokens, args):
+    """Show or set configuration"""
+    config = SlackConfig.load(args.config_file)
+    
+    # Set default channel
+    if hasattr(args, 'set_channel') and args.set_channel:
+        channel = args.set_channel
+        
+        # Try to resolve channel ID if it's a name
+        if channel.startswith('#'):
+            token = tokens.access_token or tokens.bot_token
+            if token:
+                channels = client.list_channels(token)
+                channel_name = channel[1:]  # Remove #
+                for ch in channels:
+                    if ch.get('name') == channel_name:
+                        config.default_channel = channel
+                        config.default_channel_id = ch.get('id')
+                        print(f"✅ Found channel: {channel} (ID: {config.default_channel_id})")
+                        break
+                else:
+                    print(f"⚠️ Channel {channel} not found, saving name only")
+                    config.default_channel = channel
+                    config.default_channel_id = None
+            else:
+                config.default_channel = channel
+        else:
+            # Assume it's a channel ID
+            config.default_channel_id = channel
+        
+        config.save(args.config_file)
+        return
+    
+    # Show current configuration
+    print("\n" + "=" * 60)
+    print("⚙️  SLACK INTERFACE CONFIGURATION")
+    print("=" * 60)
+    print(f"\n📁 Config file: {args.config_file}")
+    print(f"\n📋 Current Settings:")
+    print(f"   Default Channel: {config.default_channel or '(not set)'}")
+    print(f"   Default Channel ID: {config.default_channel_id or '(not set)'}")
+    print(f"   Workspace: {config.workspace or '(not set)'}")
+    
+    print(f"\n💡 To set default channel:")
+    print(f"   python slack_interface.py config --set-channel '#channel-name'")
+    print(f"   python slack_interface.py config --set-channel 'C0AAAAMBR1R'")
+    print("=" * 60 + "\n")
+
+
+def cmd_say(client: SlackClient, tokens: SlackTokens, args):
+    """Send a message to the default channel"""
+    config = SlackConfig.load(args.config_file)
+    
+    # Determine channel: CLI arg > config default
+    channel = None
+    if hasattr(args, 'channel') and args.channel:
+        channel = args.channel
+    else:
+        channel = config.get_default_channel()
+    
+    if not channel:
+        print("❌ No channel specified and no default channel configured", file=sys.stderr)
+        print("\n💡 To set a default channel:", file=sys.stderr)
+        print("   python slack_interface.py config --set-channel '#channel-name'", file=sys.stderr)
+        print("\n   Or specify channel with -c:", file=sys.stderr)
+        print("   python slack_interface.py say -c '#channel' 'message'", file=sys.stderr)
+        sys.exit(1)
+    
+    token = tokens.access_token or tokens.bot_token
+    if not token:
+        print("❌ No valid token available", file=sys.stderr)
+        sys.exit(1)
+    
+    message = args.message
+    thread = args.thread if hasattr(args, 'thread') else None
+    
+    # Show which channel we're sending to
+    channel_display = channel if channel.startswith('#') else f"ID:{channel}"
+    print(f"\n📤 Sending to {channel_display}...")
+    
+    result = client.send_message(token, channel, message, thread)
+    
+    if result.get("ok"):
+        print(f"✅ Message sent successfully!")
+        print(f"   Channel: {result.get('channel')}")
+        print(f"   Timestamp: {result.get('ts')}")
+    else:
+        print(f"❌ Failed to send: {result.get('error', 'Unknown error')}")
+        sys.exit(1)
+
 
 def cmd_scopes(client: SlackClient, tokens: SlackTokens, args):
     """Show available scopes for each token"""
@@ -531,17 +685,34 @@ Examples:
   %(prog)s users                     List all users
   %(prog)s history C048ANAEC8P       Get history for channel by ID
   %(prog)s history "#general"        Get history for channel by name
-  %(prog)s send "#general" "Hello!"  Send a message
+  %(prog)s send "#general" "Hello!"  Send a message to specific channel
+  %(prog)s say "Hello!"              Send a message to default channel
+  %(prog)s say -c "#other" "Hi"      Send to different channel
   %(prog)s join "#logo-creator"      Join a channel
   %(prog)s create logo-creator       Create a new channel
   %(prog)s info "#general"           Get channel info
+  %(prog)s config                    Show current configuration
+  %(prog)s config --set-channel "#logo-creator"  Set default channel
         """
     )
     
     parser.add_argument('--token-file', '-f', default='/dev/shm/mcp-token',
                         help='Path to token file (default: /dev/shm/mcp-token)')
+    parser.add_argument('--config-file', '-C', default=DEFAULT_CONFIG_PATH,
+                        help=f'Path to config file (default: {DEFAULT_CONFIG_PATH})')
     
     subparsers = parser.add_subparsers(dest='command', help='Available commands')
+    
+    # Config command
+    config_parser = subparsers.add_parser('config', help='Show or set configuration')
+    config_parser.add_argument('--set-channel', metavar='CHANNEL',
+                               help='Set default channel (e.g., "#logo-creator" or "C0AAAAMBR1R")')
+    
+    # Say command (send to default channel)
+    say_parser = subparsers.add_parser('say', help='Send message to default channel')
+    say_parser.add_argument('message', help='Message text')
+    say_parser.add_argument('-c', '--channel', help='Override default channel')
+    say_parser.add_argument('-t', '--thread', help='Thread timestamp for reply')
     
     # Scopes command
     subparsers.add_parser('scopes', help='Show available scopes for each token')
@@ -626,6 +797,8 @@ Examples:
     
     # Execute command
     commands = {
+        'config': cmd_config,
+        'say': cmd_say,
         'scopes': cmd_scopes,
         'channels': cmd_channels,
         'users': cmd_users,
@@ -640,6 +813,161 @@ Examples:
         commands[args.command](client, tokens, args)
     else:
         parser.print_help()
+
+
+# ============================================================================
+# Python API for Programmatic Access
+# ============================================================================
+
+class SlackInterface:
+    """
+    High-level Python API for Slack Interface.
+    
+    Usage:
+        from slack_interface import SlackInterface
+        
+        # Initialize (auto-loads tokens and config)
+        slack = SlackInterface()
+        
+        # Send to default channel
+        slack.say("Hello from Python!")
+        
+        # Send to specific channel
+        slack.say("Hello!", channel="#general")
+        
+        # Get default channel info
+        print(slack.default_channel)
+        
+        # List channels
+        channels = slack.list_channels()
+    """
+    
+    def __init__(self, token_file: str = '/dev/shm/mcp-token', 
+                 config_file: str = DEFAULT_CONFIG_PATH):
+        """Initialize Slack Interface with tokens and config"""
+        self.tokens = get_slack_tokens(token_file)
+        self.config = SlackConfig.load(config_file)
+        self.client = SlackClient(self.tokens)
+        self._token = self.tokens.access_token or self.tokens.bot_token
+    
+    @property
+    def default_channel(self) -> Optional[str]:
+        """Get the default channel"""
+        return self.config.get_default_channel()
+    
+    @property
+    def default_channel_name(self) -> Optional[str]:
+        """Get the default channel name"""
+        return self.config.default_channel
+    
+    @property
+    def is_connected(self) -> bool:
+        """Check if Slack is connected (tokens available)"""
+        return self._token is not None
+    
+    def say(self, message: str, channel: Optional[str] = None, 
+            thread_ts: Optional[str] = None) -> Dict:
+        """
+        Send a message to the default channel or specified channel.
+        
+        Args:
+            message: The message text to send
+            channel: Optional channel override (uses default if not specified)
+            thread_ts: Optional thread timestamp for replies
+            
+        Returns:
+            Slack API response dict
+            
+        Raises:
+            ValueError: If no channel specified and no default configured
+            RuntimeError: If not connected to Slack
+        """
+        if not self.is_connected:
+            raise RuntimeError(
+                "Slack not connected. Please click the 'Connect' button in the "
+                "chat interface to link your Slack workspace."
+            )
+        
+        target_channel = channel or self.default_channel
+        if not target_channel:
+            raise ValueError(
+                "No channel specified and no default channel configured. "
+                "Set default with: slack.set_default_channel('#channel-name')"
+            )
+        
+        return self.client.send_message(self._token, target_channel, message, thread_ts)
+    
+    def set_default_channel(self, channel: str, config_file: str = DEFAULT_CONFIG_PATH):
+        """
+        Set the default channel for future messages.
+        
+        Args:
+            channel: Channel name (e.g., "#logo-creator") or ID (e.g., "C0AAAAMBR1R")
+            config_file: Path to save config (default: ~/.slack_interface.json)
+        """
+        if channel.startswith('#'):
+            # Try to resolve channel ID
+            channels = self.list_channels()
+            channel_name = channel[1:]
+            for ch in channels:
+                if ch.get('name') == channel_name:
+                    self.config.default_channel = channel
+                    self.config.default_channel_id = ch.get('id')
+                    break
+            else:
+                self.config.default_channel = channel
+                self.config.default_channel_id = None
+        else:
+            self.config.default_channel_id = channel
+        
+        self.config.save(config_file)
+    
+    def list_channels(self, types: str = "public_channel,private_channel") -> List[Dict]:
+        """List all channels"""
+        if not self.is_connected:
+            raise RuntimeError("Slack not connected")
+        return self.client.list_channels(self._token, types)
+    
+    def list_users(self) -> List[Dict]:
+        """List all users"""
+        if not self.is_connected:
+            raise RuntimeError("Slack not connected")
+        return self.client.list_users(self._token)
+    
+    def get_history(self, channel: Optional[str] = None, limit: int = 50) -> List[Dict]:
+        """Get channel message history"""
+        if not self.is_connected:
+            raise RuntimeError("Slack not connected")
+        target_channel = channel or self.default_channel
+        if not target_channel:
+            raise ValueError("No channel specified and no default configured")
+        return self.client.get_channel_history(self._token, target_channel, limit)
+    
+    def join_channel(self, channel: str) -> Dict:
+        """Join a channel"""
+        if not self.is_connected:
+            raise RuntimeError("Slack not connected")
+        return self.client.join_channel(self._token, channel)
+    
+    def create_channel(self, name: str, is_private: bool = False) -> Dict:
+        """Create a new channel"""
+        if not self.is_connected:
+            raise RuntimeError("Slack not connected")
+        return self.client.create_channel(self._token, name, is_private)
+
+
+# Convenience function for quick messaging
+def say(message: str, channel: Optional[str] = None) -> Dict:
+    """
+    Quick function to send a message to the default channel.
+    
+    Usage:
+        from slack_interface import say
+        say("Hello from Python!")
+        say("Hello!", channel="#general")
+    """
+    slack = SlackInterface()
+    return slack.say(message, channel)
 
 
 if __name__ == "__main__":
