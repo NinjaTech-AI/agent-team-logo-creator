@@ -41,6 +41,53 @@ from pathlib import Path
 
 
 # ============================================================================
+# Agent Avatar URLs (Deployed to web)
+# ============================================================================
+
+AVATAR_BASE_URL = "https://sites.super.betamyninja.ai/44664728-914e-4c05-bdf2-d171ad4edcb3/5e27c2ca"
+
+AGENT_AVATARS = {
+    "nova": {
+        "name": "Nova",
+        "role": "Product Manager",
+        "emoji": "🌟",
+        "color": "purple",
+        "icon_url": f"{AVATAR_BASE_URL}/nova.png",
+        "icon_emoji": ":star:"
+    },
+    "pixel": {
+        "name": "Pixel",
+        "role": "UX Designer",
+        "emoji": "🎨",
+        "color": "pink",
+        "icon_url": f"{AVATAR_BASE_URL}/pixel.png",
+        "icon_emoji": ":art:"
+    },
+    "bolt": {
+        "name": "Bolt",
+        "role": "Full-Stack Developer",
+        "emoji": "⚡",
+        "color": "yellow",
+        "icon_url": f"{AVATAR_BASE_URL}/bolt.png",
+        "icon_emoji": ":zap:"
+    },
+    "scout": {
+        "name": "Scout",
+        "role": "QA Engineer",
+        "emoji": "🔍",
+        "color": "green",
+        "icon_url": f"{AVATAR_BASE_URL}/scout.png",
+        "icon_emoji": ":mag:"
+    }
+}
+
+
+def get_agent_avatar(agent_name: str) -> Optional[Dict[str, str]]:
+    """Get avatar info for an agent by name"""
+    return AGENT_AVATARS.get(agent_name.lower())
+
+
+# ============================================================================
 # Configuration Management
 # ============================================================================
 
@@ -334,6 +381,27 @@ class SlackClient:
 # CLI Commands
 # ============================================================================
 
+def cmd_agents(client: SlackClient, tokens: SlackTokens, args):
+    """List all available agents with their avatars"""
+    print("\n" + "=" * 60)
+    print("🤖 AVAILABLE AGENTS")
+    print("=" * 60)
+    
+    for agent_id, info in AGENT_AVATARS.items():
+        print(f"\n{info['emoji']} {info['name']} ({agent_id})")
+        print(f"   Role: {info['role']}")
+        print(f"   Color: {info['color']}")
+        print(f"   Avatar: {info['icon_url']}")
+    
+    print("\n" + "-" * 60)
+    print("💡 Usage:")
+    print("   python slack_interface.py say -a nova 'Hello from Nova!'")
+    print("   python slack_interface.py say -a pixel 'Design ready!'")
+    print("   python slack_interface.py say -a bolt 'Code deployed!'")
+    print("   python slack_interface.py say -a scout 'Tests passed!'")
+    print("=" * 60 + "\n")
+
+
 def cmd_config(client: SlackClient, tokens: SlackTokens, args):
     """Show or set configuration"""
     config = SlackConfig.load(args.config_file)
@@ -412,14 +480,27 @@ def cmd_say(client: SlackClient, tokens: SlackTokens, args):
     thread = args.thread if hasattr(args, 'thread') else None
     username = args.username if hasattr(args, 'username') and args.username else None
     icon_emoji = args.icon if hasattr(args, 'icon') and args.icon else None
+    icon_url = None
+    
+    # If agent is specified, use their avatar
+    if hasattr(args, 'agent') and args.agent:
+        agent_info = get_agent_avatar(args.agent)
+        if agent_info:
+            username = agent_info['name']
+            icon_url = agent_info['icon_url']
+            # Don't use emoji if we have a custom avatar URL
+            icon_emoji = None
     
     # Show which channel we're sending to
     channel_display = channel if channel.startswith('#') else f"ID:{channel}"
     print(f"\n📤 Sending to {channel_display}...")
     if username:
         print(f"   As: {username}")
+    if icon_url:
+        print(f"   Avatar: Custom image")
     
-    result = client.send_message(token, channel, message, thread, username=username, icon_emoji=icon_emoji)
+    result = client.send_message(token, channel, message, thread, 
+                                  username=username, icon_emoji=icon_emoji, icon_url=icon_url)
     
     if result.get("ok"):
         print(f"✅ Message sent successfully!")
@@ -719,6 +800,9 @@ Examples:
     
     subparsers = parser.add_subparsers(dest='command', help='Available commands')
     
+    # Agents command
+    subparsers.add_parser('agents', help='List all available agents with avatars')
+    
     # Config command
     config_parser = subparsers.add_parser('config', help='Show or set configuration')
     config_parser.add_argument('--set-channel', metavar='CHANNEL',
@@ -731,6 +815,8 @@ Examples:
     say_parser.add_argument('-t', '--thread', help='Thread timestamp for reply')
     say_parser.add_argument('-u', '--username', help='Custom bot username (e.g., "Nova")')
     say_parser.add_argument('-i', '--icon', help='Custom emoji icon (e.g., ":robot_face:")')
+    say_parser.add_argument('-a', '--agent', choices=['nova', 'pixel', 'bolt', 'scout'],
+                           help='Send as a specific agent (uses their avatar and name)')
     
     # Scopes command
     subparsers.add_parser('scopes', help='Show available scopes for each token')
@@ -815,6 +901,7 @@ Examples:
     
     # Execute command
     commands = {
+        'agents': cmd_agents,
         'config': cmd_config,
         'say': cmd_say,
         'scopes': cmd_scopes,
