@@ -567,6 +567,89 @@ def cmd_say(client: SlackClient, tokens: SlackTokens, args):
         sys.exit(1)
 
 
+def cmd_read(client: SlackClient, tokens: SlackTokens, args):
+    """Read messages from the default channel"""
+    config = SlackConfig.load(args.config_file)
+    
+    # Determine channel: CLI arg > config default
+    channel = None
+    if hasattr(args, 'channel') and args.channel:
+        channel = args.channel
+    else:
+        channel = config.get_default_channel()
+    
+    if not channel:
+        print("❌ No channel specified and no default channel configured", file=sys.stderr)
+        print("\n💡 To set a default channel:", file=sys.stderr)
+        print("   python slack_interface.py config --set-channel '#channel-name'", file=sys.stderr)
+        print("\n   Or specify channel with -c:", file=sys.stderr)
+        print("   python slack_interface.py read -c '#channel'", file=sys.stderr)
+        sys.exit(1)
+    
+    # Try bot token first (may have groups:read for private channels), then user token
+    token = tokens.bot_token or tokens.access_token
+    if not token:
+        print("❌ No valid token available", file=sys.stderr)
+        sys.exit(1)
+    
+    limit = args.limit if hasattr(args, 'limit') else 50
+    
+    # Show which channel we're reading from
+    channel_display = channel if channel.startswith('#') else f"ID:{channel}"
+    print(f"\n📖 Reading messages from {channel_display}...")
+    
+    messages = client.get_channel_history(token, channel, limit)
+    
+    if not messages:
+        print("📭 No messages found or channel is empty")
+        print("\n💡 If you're seeing a 'missing_scope' error, the Slack app needs")
+        print("   the 'channels:history' scope to read public channel messages,")
+        print("   or 'groups:history' for private channels.")
+        print("\n   Please add these scopes in your Slack App settings:")
+        print("   https://api.slack.com/apps → Your App → OAuth & Permissions")
+        return
+    
+    print(f"\n💬 Last {len(messages)} messages:\n")
+    print("=" * 80)
+    
+    # Get user info for better display
+    users_cache = {}
+    try:
+        users = client.list_users(token)
+        for user in users:
+            users_cache[user.get('id')] = user.get('real_name') or user.get('name') or user.get('id')
+    except:
+        pass  # Continue without user names if it fails
+    
+    for msg in reversed(messages):
+        user_id = msg.get('user', 'unknown')
+        user_name = users_cache.get(user_id, user_id)
+        text = msg.get('text', '')
+        ts = msg.get('ts', '')
+        
+        # Check for bot messages with custom username
+        if msg.get('bot_id') and msg.get('username'):
+            user_name = msg.get('username')
+        
+        # Convert timestamp
+        try:
+            dt = datetime.fromtimestamp(float(ts))
+            time_str = dt.strftime('%Y-%m-%d %H:%M:%S')
+        except:
+            time_str = ts
+        
+        # Format output
+        print(f"┌─ {user_name} [{time_str}]")
+        
+        # Handle multi-line messages
+        for line in text.split('\n'):
+            print(f"│  {line}")
+        
+        print("└" + "─" * 79)
+    
+    print(f"\n📊 Total: {len(messages)} messages from {channel_display}")
+
+
 def cmd_scopes(client: SlackClient, tokens: SlackTokens, args):
     """Show available scopes for each token"""
     print("\n" + "=" * 70)
@@ -833,22 +916,21 @@ def main():
         epilog="""
 Examples:
   %(prog)s agents                    List all available agents
-  %(prog)s scopes                    Show available scopes for each token
-  %(prog)s channels                  List all channels
-  %(prog)s channels -t public_channel  List only public channels
-  %(prog)s users                     List all users
-  %(prog)s history C048ANAEC8P       Get history for channel by ID
-  %(prog)s history "#general"        Get history for channel by name
-  %(prog)s send "#general" "Hello!"  Send a message (no agent identity)
+  %(prog)s read                      Read messages from default channel
+  %(prog)s read -l 100               Read last 100 messages
   %(prog)s say -a nova "Hello!"      Send as Nova agent to default channel
   %(prog)s say -a bolt "Building..."  Send as Bolt agent
   %(prog)s say "Hello!"              Send as default agent (if configured)
-  %(prog)s join "#logo-creator"      Join a channel
-  %(prog)s create logo-creator       Create a new channel
-  %(prog)s info "#general"           Get channel info
   %(prog)s config                    Show current configuration
   %(prog)s config --set-channel "#logo-creator"  Set default channel
   %(prog)s config --set-agent nova   Set default agent
+  %(prog)s scopes                    Show available scopes for each token
+  %(prog)s channels                  List all channels
+  %(prog)s users                     List all users
+  %(prog)s history "#general"        Get history for specific channel
+  %(prog)s send "#general" "Hello!"  Send a message (no agent identity)
+  %(prog)s join "#logo-creator"      Join a channel
+  %(prog)s info "#general"           Get channel info
 
 Agents (required for 'say' command):
   nova   - Product Manager (purple robot)
@@ -882,6 +964,12 @@ Agents (required for 'say' command):
                            help='Agent to send as (required if no default agent set)')
     say_parser.add_argument('-c', '--channel', help='Override default channel')
     say_parser.add_argument('-t', '--thread', help='Thread timestamp for reply')
+    
+    # Read command (read messages from default channel)
+    read_parser = subparsers.add_parser('read', help='Read messages from default channel')
+    read_parser.add_argument('-c', '--channel', help='Override default channel')
+    read_parser.add_argument('-l', '--limit', type=int, default=50,
+                            help='Number of messages to fetch (default: 50)')
     
     # Scopes command
     subparsers.add_parser('scopes', help='Show available scopes for each token')
@@ -969,6 +1057,7 @@ Agents (required for 'say' command):
         'agents': cmd_agents,
         'config': cmd_config,
         'say': cmd_say,
+        'read': cmd_read,
         'scopes': cmd_scopes,
         'channels': cmd_channels,
         'users': cmd_users,
