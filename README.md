@@ -23,47 +23,47 @@ A multi-agent AI system for creating team logos, powered by collaborative AI age
 ## 🏗️ Architecture
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
+┌─────────────────────────────────────────────────────────────────────┐
 │                       ORCHESTRATOR                               │
 │                    (src/orchestrator.py)                         │
 │                                                                  │
 │   Runs Claude Code 4 times per sync cycle, once per agent       │
 │   Each agent's prompt is built from their spec MD file          │
-└─────────────────────────────────────────────────────────────────┘
+└─────────────────────────────────────────────────────────────────────┘
                               │
                               ▼
-┌─────────────────────────────────────────────────────────────────┐
+┌─────────────────────────────────────────────────────────────────────┐
 │                         TOOLS                                    │
 │                                                                  │
 │   ┌─────────────────┐  ┌─────────────┐  ┌─────────────┐         │
 │   │slack_interface  │  │ Image Gen   │  │  Internet   │         │
 │   │  (all agents)   │  │(Pixel only) │  │   Search    │         │
 │   └─────────────────┘  └─────────────┘  └─────────────┘         │
-└─────────────────────────────────────────────────────────────────┘
+└─────────────────────────────────────────────────────────────────────┘
                               │
                               ▼
-┌─────────────────────────────────────────────────────────────────┐
+┌─────────────────────────────────────────────────────────────────────┐
 │                     AGENT SPECS (Prompts)                        │
 │                      agent-docs/*.md                             │
 │                                                                  │
 │   NOVA_SPEC.md → PIXEL_SPEC.md → BOLT_SPEC.md → SCOUT_SPEC.md  │
-└─────────────────────────────────────────────────────────────────┘
+└─────────────────────────────────────────────────────────────────────┘
                               │
                               ▼
-┌─────────────────────────────────────────────────────────────────┐
+┌─────────────────────────────────────────────────────────────────────┐
 │                     SLACK CHANNEL                                │
 │                    #logo-creator                                 │
 │                                                                  │
 │   All agents + Babak/Arash communicate here                     │
-└─────────────────────────────────────────────────────────────────┘
+└─────────────────────────────────────────────────────────────────────┘
                               │
                               ▼
-┌─────────────────────────────────────────────────────────────────┐
+┌─────────────────────────────────────────────────────────────────────┐
 │                      MEMORY FILES                                │
 │                       memory/*.md                                │
 │                                                                  │
 │   Each agent persists context between sessions                  │
-└─────────────────────────────────────────────────────────────────┘
+└─────────────────────────────────────────────────────────────────────┘
 ```
 
 ## 🔧 Tools
@@ -82,19 +82,22 @@ Agents have access to these tools:
 All agent communication uses the `slack_interface.py` CLI tool:
 
 ```bash
+# First-time setup (required)
+python slack_interface.py config --set-channel "#logo-creator"
+python slack_interface.py config --set-agent nova
+
+# Send messages as configured agent
+python slack_interface.py say "Sprint planning at 2pm!"
+
 # Read messages from the channel
 python slack_interface.py read              # Last 50 messages
 python slack_interface.py read -l 100       # Last 100 messages
 
-# Send messages as an agent
-python slack_interface.py say -a nova "Sprint planning at 2pm!"
-python slack_interface.py say -a pixel "Design mockups ready"
-python slack_interface.py say -a bolt "PR submitted for review"
-python slack_interface.py say -a scout "All tests passing"
+# Upload files
+python slack_interface.py upload design.png --title "New Design"
 
-# Configuration
-python slack_interface.py config --set-channel "#logo-creator"
-python slack_interface.py config --set-agent nova
+# Show configuration
+python slack_interface.py config
 ```
 
 See [agent-docs/SLACK_INTERFACE.md](agent-docs/SLACK_INTERFACE.md) for complete documentation.
@@ -142,6 +145,7 @@ agent-team-logo-creator/
 ├── agent-docs/              # Agent specifications (prompts)
 │   ├── ARCHITECTURE.md
 │   ├── AGENT_PROTOCOL.md
+│   ├── ONBOARDING.md        # Agent onboarding guide
 │   ├── SLACK_INTERFACE.md   # Slack tool documentation
 │   ├── NOVA_SPEC.md         # Nova's behavior & personality
 │   ├── PIXEL_SPEC.md        # Pixel's behavior & personality
@@ -162,8 +166,7 @@ agent-team-logo-creator/
 │   └── scout.png
 │
 └── src/                     # Orchestrator code
-    ├── orchestrator.py      # Main orchestrator
-    └── config.py            # Configuration
+    └── orchestrator.py      # Main orchestrator
 ```
 
 ## 🚀 Quick Start
@@ -178,35 +181,24 @@ agent-team-logo-creator/
 
 ### First-Time Setup: Onboarding
 
-When an agent wakes up for the first time, it must complete onboarding:
+When an agent wakes up for the first time, follow the [Onboarding Guide](agent-docs/ONBOARDING.md):
 
-```bash
-# Check if onboarding is needed
-python onboarding.py --check
+1. **Read your agent specification** - Understand your role and responsibilities
+2. **Configure Slack** - Set default channel and agent identity
+3. **Test capabilities** - Verify all tools work
+4. **Check memory** - Read context from previous sessions
 
-# Run interactive onboarding
-python onboarding.py
-```
-
-The onboarding process will:
-1. **Ask your identity** - Which agent you are (Nova, Pixel, Bolt, Scout)
-2. **Configure Slack** - Set default channel (#logo-creator)
-3. **Set schedule** - Sync interval, work hours, timezone
-4. **Test capabilities** - Verify all tools work:
-   - `python slack_interface.py scopes` - Test Slack
-   - `gh auth status` - Test GitHub
-   - `claude -p "hello world"` - Test Claude CLI
-5. **Save configuration** - Store settings in `~/.agent_config.json`
+⚠️ **IMPORTANT**: Agents should **never assume** anything. If information is missing, use the `ask` tool to request clarification from the user.
 
 See [agent-docs/ONBOARDING.md](agent-docs/ONBOARDING.md) for complete documentation.
 
-### Manual Setup (Alternative)
+### Manual Setup
 
 ```bash
 # Install dependencies
 pip install -r requirements.txt
 
-# Configure Slack
+# Configure Slack (required before use)
 python slack_interface.py config --set-channel "#logo-creator"
 python slack_interface.py config --set-agent nova
 
