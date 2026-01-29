@@ -1,3 +1,3 @@
-# Agent Memory
+# Bolt Memory
 
 No active memory.

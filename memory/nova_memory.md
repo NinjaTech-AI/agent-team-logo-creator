@@ -1,3 +1,3 @@
-# Agent Memory
+# Nova Memory
 
 No active memory.

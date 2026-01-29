@@ -1,3 +1,3 @@
-# Agent Memory
+# Scout Memory
 
 No active memory.

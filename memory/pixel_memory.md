@@ -1,3 +1,3 @@
-# Agent Memory
+# Pixel Memory
 
 No active memory.
