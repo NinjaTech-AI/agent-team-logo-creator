@@ -95,6 +95,7 @@ def build_prompt(agent: dict, task: str = "") -> str:
     memory = read_file(REPO_ROOT / "memory" / f"{agent['name'].lower()}_memory.md")
     prd = read_file(REPO_ROOT / "agent-docs" / "PRD.md")
     protocol = read_file(REPO_ROOT / "agent-docs" / "AGENT_PROTOCOL.md")
+    slack_docs = read_file(REPO_ROOT / "agent-docs" / "SLACK_INTERFACE.md")
     
     return f"""# You are {agent['name']} {agent['emoji']}
 
@@ -114,6 +115,12 @@ def build_prompt(agent: dict, task: str = "") -> str:
 ## Communication Protocol
 
 {protocol}
+
+---
+
+## Slack Interface Documentation
+
+{slack_docs}
 
 ---
 
@@ -137,11 +144,28 @@ def build_prompt(agent: dict, task: str = "") -> str:
 
 ## Instructions
 
-1. Use **Slack MCP** to read #logo-creator channel and post updates
+1. Use **slack_interface.py** to read #logo-creator channel and post updates
 2. Do your work based on your role and current tasks
 3. Commit any files to the repo, share GitHub links in Slack
 4. Update your memory file: `memory/{agent['name'].lower()}_memory.md`
 5. Stay in character as {agent['name']}, the {agent['role']}
+
+### Slack Interface Quick Reference
+
+```bash
+# Read messages from the channel
+python slack_interface.py read              # Last 50 messages
+python slack_interface.py read -l 100       # Last 100 messages
+
+# Send messages (uses configured agent from ~/.agent_settings.json)
+python slack_interface.py say "Your message here"
+
+# Upload files
+python slack_interface.py upload path/to/file.png --title "File Title"
+
+# Check configuration
+python slack_interface.py config
+```
 
 You are running in your own sandbox VM. All MCPs are pre-configured.
 """
@@ -156,15 +180,18 @@ def run_agent(agent: dict, task: str = "") -> None:
     
     prompt = build_prompt(agent, task)
     
-    # Run Claude Code CLI
+    # Run Claude Code CLI (mandatory)
     try:
         subprocess.run(
             ["claude", "-p", prompt],
             cwd=str(REPO_ROOT),
         )
     except FileNotFoundError:
-        print("❌ Claude CLI not found. Install Claude Code CLI first.")
-        return
+        print("❌ Claude CLI not found!")
+        print("")
+        print("Claude CLI is REQUIRED to run agents.")
+        print("Please install Claude Code CLI first.")
+        sys.exit(1)
     
     print(f"\n✅ {agent['name']} completed\n")
 
@@ -199,39 +226,8 @@ def run_capability_tests() -> bool:
     else:
         print("   ⚠️  No default channel configured")
     
-    # Test 2: Slack Interface
-    print("\n📋 Test 2: Slack Interface")
-    slack_script = REPO_ROOT / "slack_interface.py"
-    if slack_script.exists():
-        try:
-            result = subprocess.run(
-                ["python3", str(slack_script), "scopes"],
-                capture_output=True,
-                text=True,
-                timeout=30
-            )
-            if result.returncode == 0 and "Valid" in result.stdout:
-                print("   ✅ Slack connection working")
-                results["slack"] = True
-            else:
-                print("   ❌ Slack connection failed")
-                results["slack"] = False
-                all_passed = False
-        except subprocess.TimeoutExpired:
-            print("   ❌ Slack test timed out")
-            results["slack"] = False
-            all_passed = False
-        except Exception as e:
-            print(f"   ❌ Slack test error: {e}")
-            results["slack"] = False
-            all_passed = False
-    else:
-        print("   ❌ slack_interface.py not found")
-        results["slack"] = False
-        all_passed = False
-    
-    # Test 3: GitHub CLI
-    print("\n📋 Test 3: GitHub CLI")
+    # Test 2: GitHub CLI
+    print("\n📋 Test 2: GitHub CLI")
     if shutil.which("gh"):
         try:
             result = subprocess.run(
@@ -256,38 +252,24 @@ def run_capability_tests() -> bool:
         results["github"] = False
         all_passed = False
     
-    # Test 4: Claude CLI (optional - may not be available in all environments)
-    print("\n📋 Test 4: Claude CLI (optional)")
+    # Test 3: Claude CLI (MANDATORY)
+    print("\n📋 Test 3: Claude CLI (REQUIRED)")
     if shutil.which("claude"):
-        try:
-            result = subprocess.run(
-                ["claude", "-p", "hello world"],
-                capture_output=True,
-                text=True,
-                timeout=30
-            )
-            if result.returncode == 0:
-                print("   ✅ Claude CLI working")
-                results["claude"] = True
-            else:
-                print(f"   ⚠️  Claude CLI not responding (optional)")
-                results["claude"] = None  # Optional, don't fail
-        except subprocess.TimeoutExpired:
-            print("   ⚠️  Claude CLI timed out (optional)")
-            results["claude"] = None  # Optional, don't fail
-        except Exception as e:
-            print(f"   ⚠️  Claude CLI error: {e} (optional)")
-            results["claude"] = None  # Optional, don't fail
+        print("   ✅ Claude CLI installed")
+        results["claude"] = True
     else:
-        print("   ⚠️  Claude CLI not installed (optional)")
-        results["claude"] = None  # Optional
+        print("   ❌ Claude CLI not installed")
+        print("   ⚠️  Claude CLI is REQUIRED to run agents")
+        results["claude"] = False
+        all_passed = False
     
-    # Test 5: Project Files
-    print("\n📋 Test 5: Project Files")
+    # Test 4: Project Files
+    print("\n📋 Test 4: Project Files")
     required_files = [
         "slack_interface.py",
         "agent-docs/ONBOARDING.md",
         "agent-docs/AGENT_PROTOCOL.md",
+        "agent-docs/SLACK_INTERFACE.md",
         "memory",
     ]
     files_ok = True

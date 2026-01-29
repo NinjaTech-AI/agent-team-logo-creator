@@ -11,19 +11,19 @@ All agents communicate via the `slack_interface.py` CLI tool. See [SLACK_INTERFA
 ### Quick Reference
 
 ```bash
+# Configure your agent identity (do this first!)
+python slack_interface.py config --set-agent nova
+python slack_interface.py config --set-channel "#logo-creator"
+
 # Read messages from the channel
 python slack_interface.py read              # Last 50 messages
 python slack_interface.py read -l 100       # Last 100 messages
 
-# Send messages as an agent
-python slack_interface.py say -a nova "Message from Nova"
-python slack_interface.py say -a pixel "Message from Pixel"
-python slack_interface.py say -a bolt "Message from Bolt"
-python slack_interface.py say -a scout "Message from Scout"
+# Send messages as configured agent
+python slack_interface.py say "Message from your agent"
 
-# Configuration
-python slack_interface.py config            # View current config
-python slack_interface.py config --set-agent nova  # Set default agent
+# Upload files
+python slack_interface.py upload design.png --title "Design Mockup"
 ```
 
 ## Channel Structure
@@ -55,7 +55,7 @@ python slack_interface.py config --set-agent nova  # Set default agent
 
 #### Nova's Sync Start
 ```bash
-python slack_interface.py say -a nova "🌟 **HOURLY SYNC - [TIMESTAMP]**
+python slack_interface.py say "🌟 **HOURLY SYNC - [TIMESTAMP]**
 
 Good [morning/afternoon] team! Let's do a quick sync.
 
@@ -69,7 +69,7 @@ Good [morning/afternoon] team! Let's do a quick sync.
 
 #### Agent Status Update
 ```bash
-python slack_interface.py say -a [agent] "[EMOJI] **[AGENT_NAME] Status Update**
+python slack_interface.py say "[EMOJI] **[AGENT_NAME] Status Update**
 
 ✅ **Completed:**
 - [Task 1]
@@ -87,7 +87,7 @@ python slack_interface.py say -a [agent] "[EMOJI] **[AGENT_NAME] Status Update**
 
 #### Nova's Task Assignment
 ```bash
-python slack_interface.py say -a nova "🌟 **Task Assignments - This Cycle**
+python slack_interface.py say "🌟 **Task Assignments - This Cycle**
 
 @pixel:
 - [ ] [Task description]
@@ -106,13 +106,13 @@ python slack_interface.py say -a nova "🌟 **Task Assignments - This Cycle**
 
 #### Asking for Help
 ```bash
-python slack_interface.py say -a [agent] "@[agent_name] Quick question about [topic]:
+python slack_interface.py say "@[agent_name] Quick question about [topic]:
 [Question details]"
 ```
 
 #### Sharing Work
 ```bash
-python slack_interface.py say -a [agent] "[EMOJI] **[Work Type] Update**
+python slack_interface.py say "[EMOJI] **[Work Type] Update**
 
 [Description of work completed]
 
@@ -123,7 +123,7 @@ python slack_interface.py say -a [agent] "[EMOJI] **[Work Type] Update**
 
 #### Reporting Blockers
 ```bash
-python slack_interface.py say -a [agent] "🚨 **Blocker Alert**
+python slack_interface.py say "🚨 **Blocker Alert**
 
 @nova I'm blocked on [task]:
 - **Issue**: [Description]
@@ -135,7 +135,7 @@ python slack_interface.py say -a [agent] "🚨 **Blocker Alert**
 
 #### Work Summary
 ```bash
-python slack_interface.py say -a [agent] "[EMOJI] **[AGENT_NAME] - Cycle Summary**
+python slack_interface.py say "[EMOJI] **[AGENT_NAME] - Cycle Summary**
 
 📊 **This Cycle:**
 - [Accomplishment 1]
@@ -220,13 +220,13 @@ When referencing GitHub issues in Slack:
 
 ### PR Notifications
 ```bash
-python slack_interface.py say -a bolt "🔀 PR Ready: [Title] - [GitHub Link]
+python slack_interface.py say "🔀 PR Ready: [Title] - [GitHub Link]
 @nova ready for review"
 ```
 
 ### Code Review Comments
 ```bash
-python slack_interface.py say -a nova "📝 Review feedback on PR #[number]:
+python slack_interface.py say "📝 Review feedback on PR #[number]:
 - [Comment 1]
 - [Comment 2]
 @bolt please address these"
@@ -260,7 +260,7 @@ If Slack is unavailable:
 
 ### Escalation Format
 ```bash
-python slack_interface.py say -a nova "👤 **Babak/Arash Input Needed**
+python slack_interface.py say "👤 **Babak/Arash Input Needed**
 
 @babak @arash We need your input on:
 - **Topic**: [Description]

@@ -14,32 +14,27 @@
 
 **IMPORTANT:** If this is your first time waking up, you MUST complete onboarding before doing any work.
 
-### Check Onboarding Status
-```bash
-python onboarding.py --check
-```
-
-### If Not Complete, Run Onboarding
-```bash
-python onboarding.py
-```
-
-The onboarding process will:
-1. **Ask your identity** - Confirm you are Scout
-2. **Configure Slack** - Set default channel (#logo-creator)
-3. **Set schedule** - Sync interval, work hours, timezone
-4. **Test capabilities** - Verify Slack, GitHub, and Claude CLI work
-5. **Save configuration** - Store settings for future sessions
-
-### Capability Tests During Onboarding
-```bash
-# These are run automatically during onboarding:
-python slack_interface.py scopes    # Test Slack connection
-gh auth status                       # Test GitHub CLI
-claude -p "hello world"              # Test Claude CLI
-```
-
 See [ONBOARDING.md](ONBOARDING.md) for complete onboarding documentation.
+
+### Quick Onboarding Checklist
+
+1. **Read all documentation** in `agent-docs/` folder
+2. **Configure your identity**:
+   ```bash
+   python slack_interface.py config --set-agent scout
+   python slack_interface.py config --set-channel "#logo-creator"
+   ```
+3. **Test Slack connection**:
+   ```bash
+   python slack_interface.py scopes
+   python slack_interface.py say "🔍 Scout is online!"
+   ```
+4. **Test GitHub CLI**:
+   ```bash
+   gh auth status
+   ```
+5. **Read your memory file**: `memory/scout_memory.md`
+6. **Check Slack for context**: `python slack_interface.py read -l 100`
 
 ---
 
@@ -62,8 +57,11 @@ python slack_interface.py read
 python slack_interface.py read -l 50  # Last 50 messages
 
 # Send messages as Scout
-python slack_interface.py say -a scout "🔍 QA testing complete!"
-python slack_interface.py say -a scout "@bolt Found a bug in the export feature"
+python slack_interface.py say "🔍 QA testing complete!"
+python slack_interface.py say "@bolt Found a bug in the export feature"
+
+# Upload test reports or screenshots
+python slack_interface.py upload reports/qa_report.pdf --title "QA Report"
 
 # Check current configuration
 python slack_interface.py config
@@ -95,7 +93,7 @@ Use Internet Search when you need to:
 
 Example:
 ```bash
-python slack_interface.py say -a scout "🔍 **QA Report: Logo Preview Component**
+python slack_interface.py say "🔍 **QA Report: Logo Preview Component**
 
 Testing complete for the logo preview feature.
 
@@ -198,7 +196,7 @@ Summary:
 
 **Status Update:**
 ```bash
-python slack_interface.py say -a scout "🔍 **Scout Status Update**
+python slack_interface.py say "🔍 **Scout Status Update**
 
 ✅ **Completed:**
 - Test plan for logo generator feature
@@ -219,7 +217,7 @@ python slack_interface.py say -a scout "🔍 **Scout Status Update**
 
 **Bug Report Notification:**
 ```bash
-python slack_interface.py say -a scout "🔍 **Bug Found: Logo Export Fails on Safari**
+python slack_interface.py say "🔍 **Bug Found: Logo Export Fails on Safari**
 
 @bolt Found an issue with the download feature:
 
@@ -235,7 +233,7 @@ Steps in the issue. Can you take a look?
 
 **Test Results Summary:**
 ```bash
-python slack_interface.py say -a scout "🔍 **QA Report: Logo Preview Component**
+python slack_interface.py say "🔍 **QA Report: Logo Preview Component**
 
 **Test Execution Summary:**
 - Total Cases: 20
@@ -260,7 +258,7 @@ Fix #31 and #33 before release. #32 can be deferred.
 
 **Verification Complete:**
 ```bash
-python slack_interface.py say -a scout "🔍 **Bug Verification: #31 Fixed ✅**
+python slack_interface.py say "🔍 **Bug Verification: #31 Fixed ✅**
 
 @bolt Verified the Safari export fix:
 
@@ -335,7 +333,10 @@ Bug #31 can be closed. Nice fix! 🎉"
 python slack_interface.py read -l 50
 
 # Post QA update
-python slack_interface.py say -a scout "QA update message"
+python slack_interface.py say "QA update message"
+
+# Upload test report
+python slack_interface.py upload reports/qa_report.md --title "QA Report"
 
 # Check channel info
 python slack_interface.py info "#logo-creator"

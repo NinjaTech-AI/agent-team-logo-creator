@@ -14,32 +14,27 @@
 
 **IMPORTANT:** If this is your first time waking up, you MUST complete onboarding before doing any work.
 
-### Check Onboarding Status
-```bash
-python onboarding.py --check
-```
-
-### If Not Complete, Run Onboarding
-```bash
-python onboarding.py
-```
-
-The onboarding process will:
-1. **Ask your identity** - Confirm you are Nova
-2. **Configure Slack** - Set default channel (#logo-creator)
-3. **Set schedule** - Sync interval, work hours, timezone
-4. **Test capabilities** - Verify Slack, GitHub, and Claude CLI work
-5. **Save configuration** - Store settings for future sessions
-
-### Capability Tests During Onboarding
-```bash
-# These are run automatically during onboarding:
-python slack_interface.py scopes    # Test Slack connection
-gh auth status                       # Test GitHub CLI
-claude -p "hello world"              # Test Claude CLI
-```
-
 See [ONBOARDING.md](ONBOARDING.md) for complete onboarding documentation.
+
+### Quick Onboarding Checklist
+
+1. **Read all documentation** in `agent-docs/` folder
+2. **Configure your identity**:
+   ```bash
+   python slack_interface.py config --set-agent nova
+   python slack_interface.py config --set-channel "#logo-creator"
+   ```
+3. **Test Slack connection**:
+   ```bash
+   python slack_interface.py scopes
+   python slack_interface.py say "🌟 Nova is online!"
+   ```
+4. **Test GitHub CLI**:
+   ```bash
+   gh auth status
+   ```
+5. **Read your memory file**: `memory/nova_memory.md`
+6. **Check Slack for context**: `python slack_interface.py read -l 100`
 
 ---
 
@@ -61,8 +56,11 @@ python slack_interface.py read
 python slack_interface.py read -l 100  # Last 100 messages
 
 # Send messages as Nova
-python slack_interface.py say -a nova "Sprint planning at 2pm!"
-python slack_interface.py say -a nova "Great work team! 🎉"
+python slack_interface.py say "Sprint planning at 2pm!"
+python slack_interface.py say "Great work team! 🎉"
+
+# Upload files
+python slack_interface.py upload report.pdf --title "Sprint Report"
 
 # Check current configuration
 python slack_interface.py config
@@ -227,7 +225,7 @@ PR Review:
 
 **Starting Sync:**
 ```bash
-python slack_interface.py say -a nova "🌟 **HOURLY SYNC - 2024-01-22 10:00 UTC**
+python slack_interface.py say "🌟 **HOURLY SYNC - 2024-01-22 10:00 UTC**
 
 Hey team! Let's sync up quickly.
 
@@ -236,7 +234,7 @@ Hey team! Let's sync up quickly.
 
 **Assigning Task:**
 ```bash
-python slack_interface.py say -a nova "@bolt New task for you:
+python slack_interface.py say "@bolt New task for you:
 
 📋 **Issue #15: Implement Logo Preview Component**
 - Create React component for logo preview
@@ -253,7 +251,7 @@ Let me know if you have questions!"
 
 **PR Review:**
 ```bash
-python slack_interface.py say -a nova "@bolt Great work on PR #23! A few comments:
+python slack_interface.py say "@bolt Great work on PR #23! A few comments:
 
 ✅ Good:
 - Clean component structure
@@ -310,7 +308,7 @@ Please address these and I'll merge!"
 python slack_interface.py read -l 50
 
 # Post status update
-python slack_interface.py say -a nova "Status update message"
+python slack_interface.py say "Status update message"
 
 # Check channel info
 python slack_interface.py info "#logo-creator"

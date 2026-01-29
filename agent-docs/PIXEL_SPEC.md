@@ -14,32 +14,27 @@
 
 **IMPORTANT:** If this is your first time waking up, you MUST complete onboarding before doing any work.
 
-### Check Onboarding Status
-```bash
-python onboarding.py --check
-```
-
-### If Not Complete, Run Onboarding
-```bash
-python onboarding.py
-```
-
-The onboarding process will:
-1. **Ask your identity** - Confirm you are Pixel
-2. **Configure Slack** - Set default channel (#logo-creator)
-3. **Set schedule** - Sync interval, work hours, timezone
-4. **Test capabilities** - Verify Slack, GitHub, and Claude CLI work
-5. **Save configuration** - Store settings for future sessions
-
-### Capability Tests During Onboarding
-```bash
-# These are run automatically during onboarding:
-python slack_interface.py scopes    # Test Slack connection
-gh auth status                       # Test GitHub CLI
-claude -p "hello world"              # Test Claude CLI
-```
-
 See [ONBOARDING.md](ONBOARDING.md) for complete onboarding documentation.
+
+### Quick Onboarding Checklist
+
+1. **Read all documentation** in `agent-docs/` folder
+2. **Configure your identity**:
+   ```bash
+   python slack_interface.py config --set-agent pixel
+   python slack_interface.py config --set-channel "#logo-creator"
+   ```
+3. **Test Slack connection**:
+   ```bash
+   python slack_interface.py scopes
+   python slack_interface.py say "🎨 Pixel is online!"
+   ```
+4. **Test GitHub CLI**:
+   ```bash
+   gh auth status
+   ```
+5. **Read your memory file**: `memory/pixel_memory.md`
+6. **Check Slack for context**: `python slack_interface.py read -l 100`
 
 ---
 
@@ -62,8 +57,11 @@ python slack_interface.py read
 python slack_interface.py read -l 50  # Last 50 messages
 
 # Send messages as Pixel
-python slack_interface.py say -a pixel "🎨 New design mockup ready for review!"
-python slack_interface.py say -a pixel "@bolt Design specs attached"
+python slack_interface.py say "🎨 New design mockup ready for review!"
+python slack_interface.py say "@bolt Design specs attached"
+
+# Upload design files
+python slack_interface.py upload designs/mockup.png --title "Homepage Mockup v1"
 
 # Check current configuration
 python slack_interface.py config
@@ -97,7 +95,7 @@ Always describe your design intent clearly when generating images, including:
 
 Example:
 ```bash
-python slack_interface.py say -a pixel "🎨 **New Design: Homepage Mockup v1**
+python slack_interface.py say "🎨 **New Design: Homepage Mockup v1**
 
 I've created the initial homepage design based on the PRD.
 
@@ -176,7 +174,7 @@ For each feature:
 
 **Sharing Design:**
 ```bash
-python slack_interface.py say -a pixel "🎨 **Design Update: Logo Generator UI**
+python slack_interface.py say "🎨 **Design Update: Logo Generator UI**
 
 Hey team! I've completed the main interface design.
 
@@ -197,7 +195,7 @@ Key design decisions:
 
 **Responding to Feedback:**
 ```bash
-python slack_interface.py say -a pixel "@nova Thanks for the feedback! 
+python slack_interface.py say "@nova Thanks for the feedback! 
 
 I'll update the design:
 - ✅ Increase button size for mobile
@@ -209,7 +207,7 @@ Will share updated mockup in ~30 mins."
 
 **Design Handoff:**
 ```bash
-python slack_interface.py say -a pixel "🎨 **Design Handoff: Style Selector Component**
+python slack_interface.py say "🎨 **Design Handoff: Style Selector Component**
 
 @bolt Here's everything you need:
 
@@ -305,7 +303,10 @@ Simple structural layouts showing:
 python slack_interface.py read -l 50
 
 # Post design update
-python slack_interface.py say -a pixel "Design update message"
+python slack_interface.py say "Design update message"
+
+# Upload design file
+python slack_interface.py upload designs/mockup.png --title "Mockup v1"
 
 # Check channel info
 python slack_interface.py info "#logo-creator"

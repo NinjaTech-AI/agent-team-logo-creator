@@ -14,32 +14,27 @@
 
 **IMPORTANT:** If this is your first time waking up, you MUST complete onboarding before doing any work.
 
-### Check Onboarding Status
-```bash
-python onboarding.py --check
-```
-
-### If Not Complete, Run Onboarding
-```bash
-python onboarding.py
-```
-
-The onboarding process will:
-1. **Ask your identity** - Confirm you are Bolt
-2. **Configure Slack** - Set default channel (#logo-creator)
-3. **Set schedule** - Sync interval, work hours, timezone
-4. **Test capabilities** - Verify Slack, GitHub, and Claude CLI work
-5. **Save configuration** - Store settings for future sessions
-
-### Capability Tests During Onboarding
-```bash
-# These are run automatically during onboarding:
-python slack_interface.py scopes    # Test Slack connection
-gh auth status                       # Test GitHub CLI
-claude -p "hello world"              # Test Claude CLI
-```
-
 See [ONBOARDING.md](ONBOARDING.md) for complete onboarding documentation.
+
+### Quick Onboarding Checklist
+
+1. **Read all documentation** in `agent-docs/` folder
+2. **Configure your identity**:
+   ```bash
+   python slack_interface.py config --set-agent bolt
+   python slack_interface.py config --set-channel "#logo-creator"
+   ```
+3. **Test Slack connection**:
+   ```bash
+   python slack_interface.py scopes
+   python slack_interface.py say "⚡ Bolt is online!"
+   ```
+4. **Test GitHub CLI**:
+   ```bash
+   gh auth status
+   ```
+5. **Read your memory file**: `memory/bolt_memory.md`
+6. **Check Slack for context**: `python slack_interface.py read -l 100`
 
 ---
 
@@ -62,8 +57,11 @@ python slack_interface.py read
 python slack_interface.py read -l 50  # Last 50 messages
 
 # Send messages as Bolt
-python slack_interface.py say -a bolt "⚡ PR ready for review!"
-python slack_interface.py say -a bolt "@pixel Quick question about the design..."
+python slack_interface.py say "⚡ PR ready for review!"
+python slack_interface.py say "@pixel Quick question about the design..."
+
+# Upload files
+python slack_interface.py upload screenshot.png --title "Bug Screenshot"
 
 # Check current configuration
 python slack_interface.py config
@@ -95,7 +93,7 @@ Use Internet Search when you need to:
 
 Example:
 ```bash
-python slack_interface.py say -a bolt "⚡ **PR Ready: Implement Logo Preview Component**
+python slack_interface.py say "⚡ **PR Ready: Implement Logo Preview Component**
 
 I've implemented the logo preview component based on Pixel's design.
 
@@ -199,7 +197,7 @@ Commit Messages:
 
 **Status Update:**
 ```bash
-python slack_interface.py say -a bolt "⚡ **Bolt Status Update**
+python slack_interface.py say "⚡ **Bolt Status Update**
 
 ✅ **Completed:**
 - Implemented logo preview component (#15)
@@ -220,7 +218,7 @@ python slack_interface.py say -a bolt "⚡ **Bolt Status Update**
 
 **Asking for Clarification:**
 ```bash
-python slack_interface.py say -a bolt "@pixel Quick question about the style selector:
+python slack_interface.py say "@pixel Quick question about the style selector:
 
 The mockup shows 6 style options, but should they:
 1. Wrap to next row on mobile?
@@ -232,7 +230,7 @@ Let me know your preference!"
 
 **PR Announcement:**
 ```bash
-python slack_interface.py say -a bolt "⚡ **PR Ready: Logo Preview Component**
+python slack_interface.py say "⚡ **PR Ready: Logo Preview Component**
 
 🔀 PR #24: Implement Logo Preview with Zoom
 
@@ -254,7 +252,7 @@ Link: [GitHub PR URL]"
 
 **Responding to Review:**
 ```bash
-python slack_interface.py say -a bolt "@nova Thanks for the review!
+python slack_interface.py say "@nova Thanks for the review!
 
 Addressing your feedback:
 - ✅ Added loading state spinner
@@ -333,7 +331,10 @@ backend/
 python slack_interface.py read -l 50
 
 # Post development update
-python slack_interface.py say -a bolt "Development update message"
+python slack_interface.py say "Development update message"
+
+# Upload file
+python slack_interface.py upload screenshot.png --title "Bug Screenshot"
 
 # Check channel info
 python slack_interface.py info "#logo-creator"
