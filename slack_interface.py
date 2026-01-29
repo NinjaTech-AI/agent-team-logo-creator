@@ -157,11 +157,15 @@ class SlackConfig:
         default_channel_id: Channel ID for API calls (e.g., "C0AAAAMBR1R")
         default_agent: Default agent for say command (nova, pixel, bolt, scout)
         workspace: Workspace name (informational only)
+        bot_token: Cached bot token (xoxb-*)
+        access_token: Cached user/access token (xoxp-*)
     """
     default_channel: Optional[str] = None
     default_channel_id: Optional[str] = None
     default_agent: Optional[str] = None
     workspace: Optional[str] = None
+    bot_token: Optional[str] = None
+    access_token: Optional[str] = None
     
     @classmethod
     def load(cls, filepath: str = DEFAULT_CONFIG_PATH) -> 'SlackConfig':
@@ -183,29 +187,39 @@ class SlackConfig:
                 config.default_channel_id = data.get('default_channel_id')
                 config.default_agent = data.get('default_agent')
                 config.workspace = data.get('workspace')
+                config.bot_token = data.get('bot_token')
+                config.access_token = data.get('access_token')
         except Exception as e:
             print(f"⚠️ Warning: Could not load config: {e}", file=sys.stderr)
         return config
     
-    def save(self, filepath: str = DEFAULT_CONFIG_PATH) -> None:
+    def save(self, filepath: str = DEFAULT_CONFIG_PATH, quiet: bool = False) -> None:
         """
         Save configuration to JSON file.
         
         Args:
             filepath: Path to save config (default: ~/.slack_interface.json)
+            quiet: If True, suppress success message
         """
         data = {
             'default_channel': self.default_channel,
             'default_channel_id': self.default_channel_id,
             'default_agent': self.default_agent,
-            'workspace': self.workspace
+            'workspace': self.workspace,
+            'bot_token': self.bot_token,
+            'access_token': self.access_token
         }
         # Remove None values for cleaner JSON
         data = {k: v for k, v in data.items() if v is not None}
         
         with open(filepath, 'w') as f:
             json.dump(data, f, indent=2)
-        print(f"✅ Configuration saved to {filepath}")
+        if not quiet:
+            print(f"✅ Configuration saved to {filepath}")
+    
+    def has_tokens(self) -> bool:
+        """Check if tokens are cached in config."""
+        return bool(self.bot_token or self.access_token)
     
     def get_default_channel(self) -> Optional[str]:
         """
@@ -300,33 +314,71 @@ def parse_mcp_tokens(filepath: str = '/dev/shm/mcp-token') -> Dict[str, Any]:
         return {}
 
 
-def get_slack_tokens(filepath: str = '/dev/shm/mcp-token') -> SlackTokens:
+def get_slack_tokens(filepath: str = '/dev/shm/mcp-token', 
+                      config_file: str = DEFAULT_CONFIG_PATH) -> SlackTokens:
     """
-    Extract Slack tokens from MCP token file or environment variables.
+    Extract Slack tokens from cached config, MCP token file, or environment variables.
     
     Token sources (in priority order):
-        1. MCP token file (/dev/shm/mcp-token) - auto-populated by Connect button
-        2. Environment variables:
+        1. Cached tokens in config file (~/.slack_interface.json)
+        2. MCP token file (/dev/shm/mcp-token) - auto-populated by Connect button
+        3. Environment variables:
            - SLACK_TOKEN or SLACK_MCP_XOXP_TOKEN (user token)
            - SLACK_BOT_TOKEN or SLACK_MCP_XOXB_TOKEN (bot token)
     
+    When tokens are loaded from MCP token file for the first time, they are
+    automatically cached to the config file for future use.
+    
     Args:
         filepath: Path to MCP token file
+        config_file: Path to config file for caching tokens
         
     Returns:
         SlackTokens instance with available tokens
     """
     tokens = SlackTokens()
+    config = SlackConfig.load(config_file)
+    tokens_from_cache = False
     
-    # Try to get from MCP token file first
-    all_tokens = parse_mcp_tokens(filepath)
-    slack_data = all_tokens.get('Slack', {})
+    # 1. Try to get from cached config first
+    if config.has_tokens():
+        tokens.access_token = config.access_token
+        tokens.bot_token = config.bot_token
+        tokens_from_cache = True
     
-    if isinstance(slack_data, dict):
-        tokens.access_token = slack_data.get('access_token')
-        tokens.bot_token = slack_data.get('bot_token')
+    # 2. Try to get from MCP token file (and update cache if found)
+    if not tokens.access_token and not tokens.bot_token:
+        all_tokens = parse_mcp_tokens(filepath)
+        slack_data = all_tokens.get('Slack', {})
+        
+        if isinstance(slack_data, dict):
+            tokens.access_token = slack_data.get('access_token')
+            tokens.bot_token = slack_data.get('bot_token')
+            
+            # Cache tokens to config file for future use
+            if tokens.access_token or tokens.bot_token:
+                config.access_token = tokens.access_token
+                config.bot_token = tokens.bot_token
+                
+                # Try to get workspace name for informational purposes
+                if tokens.bot_token or tokens.access_token:
+                    try:
+                        test_token = tokens.bot_token or tokens.access_token
+                        import requests
+                        response = requests.post(
+                            "https://slack.com/api/auth.test",
+                            headers={"Authorization": f"Bearer {test_token}"},
+                            timeout=10
+                        ).json()
+                        if response.get("ok"):
+                            config.workspace = response.get("team")
+                    except Exception:
+                        pass  # Ignore errors when getting workspace name
+                
+                config.save(config_file, quiet=True)
+                print(f"🔐 Slack tokens cached to {config_file}", file=sys.stderr)
     
-    # Fall back to environment variables
+    # 3. Fall back to environment variables
     if not tokens.access_token:
         tokens.access_token = os.environ.get('SLACK_TOKEN') or os.environ.get('SLACK_MCP_XOXP_TOKEN')
     
