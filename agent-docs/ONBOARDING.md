@@ -2,103 +2,134 @@
 
 ## Overview
 
-When an agent wakes up for the first time, it must complete the onboarding process before starting work. This ensures all tools are configured and working properly.
+When an agent wakes up, it must complete the onboarding process before starting work. This ensures all tools are configured and the agent understands its environment.
 
-## Quick Start
+## ⚠️ CRITICAL: Never Assume - Always Ask
 
-```bash
-# Run onboarding
-python onboarding.py
+**The most important rule for agents: DO NOT ASSUME ANYTHING.**
 
-# Check if onboarding is complete
-python onboarding.py --check
+If you need information that is not explicitly provided, you MUST use the `ask` tool to request clarification from the user. Never make assumptions about:
+- User preferences
+- Project requirements
+- Technical decisions
+- File locations
+- Configuration values
 
-# Reset and re-run onboarding
-python onboarding.py --reset
+### Using the `ask` Tool
+
+The `ask` tool is your primary way to get information from users. Use it whenever:
+- Requirements are unclear
+- You need to make a decision that affects the user
+- Information is missing
+- You need confirmation before proceeding
+
+**Example - Asking for clarification:**
+```
+I need some information before proceeding:
+
+1. What is the target channel for Slack messages?
+2. Which agent identity should I use (nova, pixel, bolt, scout)?
+3. Are there any specific requirements I should know about?
+
+Please provide these details so I can configure correctly.
 ```
 
-## Onboarding Process
+**Example - Confirming before action:**
+```
+I'm about to send a message to #general as Nova. 
 
-### 1. Agent Identity
+Should I proceed? (yes/no)
+```
 
-The agent identifies itself:
-- **Nova** - Product Manager
-- **Pixel** - UX Designer
-- **Bolt** - Full-Stack Developer
-- **Scout** - QA Engineer
+**Example - Requesting missing information:**
+```
+I noticed the configuration file is missing the following required fields:
+- default_channel
+- default_agent
 
-### 2. Slack Configuration
+Could you please provide these values?
+```
 
-Configure the default communication channel:
-- Default channel (e.g., `#logo-creator`)
-- Channel ID is auto-resolved
+## Onboarding Steps
 
-### 3. Schedule Configuration
+### Step 1: Read Documentation
 
-Set up the work schedule:
-- **Sync interval** - How often to sync (default: 60 minutes)
-- **Work hours start** - When to start working (default: 09:00)
-- **Work hours end** - When to stop working (default: 17:00)
-- **Timezone** - Your timezone (default: UTC)
+Read all relevant documentation files:
 
-### 4. Capability Tests
-
-The onboarding script tests all required capabilities:
-
-#### Slack Test
 ```bash
+# Read your agent specification
+cat agent-docs/NOVA_SPEC.md      # For Nova
+cat agent-docs/PIXEL_SPEC.md     # For Pixel
+cat agent-docs/BOLT_SPEC.md      # For Bolt
+cat agent-docs/SCOUT_SPEC.md     # For Scout
+
+# Read the architecture
+cat agent-docs/ARCHITECTURE.md
+
+# Read the agent protocol
+cat agent-docs/AGENT_PROTOCOL.md
+
+# Read the Slack interface docs
+cat agent-docs/SLACK_INTERFACE.md
+```
+
+### Step 2: Check Slack Connection
+
+Test that Slack is properly configured:
+
+```bash
+# Check token scopes
 python slack_interface.py scopes
+
+# List available channels
+python slack_interface.py channels
+
+# Show current configuration
+python slack_interface.py config
 ```
-- Verifies Slack connection
-- Checks for required scopes (channels:history, chat:write)
 
-#### GitHub Test
+### Step 3: Configure Defaults (If Not Set)
+
+If configuration is missing, **ASK THE USER** what values to use:
+
 ```bash
-gh auth status
+# Set default channel (after asking user)
+python slack_interface.py config --set-channel "#channel-name"
+
+# Set default agent (after asking user)
+python slack_interface.py config --set-agent nova
 ```
-- Verifies GitHub CLI authentication
-- Shows current repository
 
-#### Claude Test
+### Step 4: Test Capabilities
+
+Run these tests to verify everything works:
+
 ```bash
-claude -p "hello world"
+# Test 1: Read messages from channel
+python slack_interface.py read -l 5
+
+# Test 2: Send a test message
+python slack_interface.py say "Hello! Agent online and ready."
+
+# Test 3: Check GitHub access
+gh repo view
+
+# Test 4: List files in project
+ls -la
 ```
-- Verifies Claude CLI is working
-- Tests basic prompt execution
 
-### 5. Integration Test
+### Step 5: Check Memory
 
-Optionally sends a test message to Slack:
+Read your memory file for context from previous sessions:
+
 ```bash
-python slack_interface.py say -a [agent] "🚀 Onboarding test..."
+cat memory/nova_memory.md      # For Nova
+cat memory/pixel_memory.md     # For Pixel
+cat memory/bolt_memory.md      # For Bolt
+cat memory/scout_memory.md     # For Scout
 ```
 
 ## Configuration Files
-
-### Agent Config (`~/.agent_config.json`)
-
-```json
-{
-  "onboarding_complete": true,
-  "onboarding_date": "2024-01-22T10:00:00",
-  "agent_name": "Nova",
-  "default_channel": "#logo-creator",
-  "default_channel_id": "C0AAAAMBR1R",
-  "schedule": {
-    "sync_interval_minutes": 60,
-    "work_hours_start": "09:00",
-    "work_hours_end": "17:00",
-    "timezone": "UTC"
-  },
-  "capabilities_tested": {
-    "slack": true,
-    "github": true,
-    "claude": true
-  },
-  "github_repo": "NinjaTech-AI/agent-team-logo-creator",
-  "last_sync": null
-}
-```
 
 ### Slack Config (`~/.slack_interface.json`)
 
@@ -106,235 +137,91 @@ python slack_interface.py say -a [agent] "🚀 Onboarding test..."
 {
   "default_channel": "#logo-creator",
   "default_channel_id": "C0AAAAMBR1R",
-  "default_agent": "nova"
+  "default_agent": "nova",
+  "workspace": "RenovateAI",
+  "bot_token": "xoxb-...",
+  "access_token": "xoxp-..."
 }
 ```
 
-## First Wake-Up Checklist
+## Agent Identities
 
-When an agent wakes up for the first time:
+| Agent | Role | Emoji |
+|-------|------|-------|
+| Nova | Product Manager | 🌟 |
+| Pixel | UX Designer | 🎨 |
+| Bolt | Full-Stack Developer | ⚡ |
+| Scout | QA Engineer | 🔍 |
 
-### Step 1: Check Onboarding Status
-```bash
-python onboarding.py --check
-```
-
-If not complete, run onboarding:
-```bash
-python onboarding.py
-```
-
-### Step 2: Verify Capabilities
-
-After onboarding, verify each capability manually:
+## Quick Test Commands
 
 ```bash
-# Test Slack read
-python slack_interface.py read -l 5
+# Test Slack connection
+python slack_interface.py scopes
 
-# Test Slack send
-python slack_interface.py say -a [agent] "Hello team! I'm online."
+# Test sending message
+python slack_interface.py say "Test message"
+
+# Test file upload
+python slack_interface.py upload avatars/nova.png --title "Test Upload"
+
+# Test reading messages
+python slack_interface.py read -l 10
 
 # Test GitHub
-gh repo view
-
-# Test Claude
-claude -p "What is 2+2?"
-```
-
-### Step 3: Read Your Spec
-
-Each agent should read their specification:
-- Nova: `agent-docs/NOVA_SPEC.md`
-- Pixel: `agent-docs/PIXEL_SPEC.md`
-- Bolt: `agent-docs/BOLT_SPEC.md`
-- Scout: `agent-docs/SCOUT_SPEC.md`
-
-### Step 4: Check Memory
-
-Read your memory file for context from previous sessions:
-- Nova: `memory/nova_memory.md`
-- Pixel: `memory/pixel_memory.md`
-- Bolt: `memory/bolt_memory.md`
-- Scout: `memory/scout_memory.md`
-
-### Step 5: Announce Yourself
-
-Post a message to the team:
-```bash
-python slack_interface.py say -a [agent] "🌟 [Agent] is online and ready to work!"
+gh issue list
+gh pr list
 ```
 
 ## Troubleshooting
 
 ### Slack Connection Failed
 
-1. Check token file exists:
-   ```bash
-   cat /dev/shm/mcp-token | grep Slack
-   ```
+```bash
+# Check if tokens are cached
+cat ~/.slack_interface.json
 
-2. Verify token scopes:
-   ```bash
-   python slack_interface.py scopes
-   ```
+# Check token file
+cat /dev/shm/mcp-token | grep Slack
 
-3. Required scopes:
-   - `channels:history` - Read messages
-   - `chat:write` - Send messages
-   - `channels:read` - List channels
+# Verify scopes
+python slack_interface.py scopes
+```
+
+### Missing Configuration
+
+**DO NOT GUESS VALUES.** Use the `ask` tool to request the information:
+
+```
+I need to configure the Slack interface but the following settings are missing:
+- Default channel
+- Default agent
+
+What values should I use for these settings?
+```
 
 ### GitHub Authentication Failed
 
-1. Check auth status:
-   ```bash
-   gh auth status
-   ```
-
-2. Login if needed:
-   ```bash
-   gh auth login
-   ```
-
-3. Verify repo access:
-   ```bash
-   gh repo view
-   ```
-
-### Claude CLI Failed
-
-1. Check if claude is installed:
-   ```bash
-   which claude
-   ```
-
-2. Test basic prompt:
-   ```bash
-   claude -p "hello"
-   ```
-
-3. Check for errors in output
-
-## Re-Onboarding
-
-To reset and re-run onboarding:
-
 ```bash
-# Reset configuration
-python onboarding.py --reset
+# Check auth status
+gh auth status
 
-# Run onboarding again
-python onboarding.py
+# View current repo
+gh repo view
 ```
 
-## Integration with Orchestrator
+## Remember: Always Ask!
 
-The orchestrator checks onboarding status before running an agent:
+When in doubt, use the `ask` tool. It's better to ask for clarification than to make incorrect assumptions. The user will appreciate being consulted rather than having to fix mistakes later.
 
-```python
-# In orchestrator.py
-def run_agent(agent_name):
-    # Check onboarding
-    result = subprocess.run(["python", "onboarding.py", "--check"])
-    if result.returncode != 0:
-        print(f"⚠️ {agent_name} needs onboarding!")
-        subprocess.run(["python", "onboarding.py"])
-    
-    # Continue with agent execution...
-```
+**Good practice:**
+- Ask before sending messages to channels
+- Ask before making configuration changes
+- Ask when requirements are ambiguous
+- Ask when you need to choose between options
 
-## Example Onboarding Session
-
-```
-======================================================================
-🚀 AGENT ONBOARDING
-======================================================================
-
-Welcome! This script will configure your agent environment.
-Please answer the following questions to complete setup.
-
---------------------------------------------------
-📋 AGENT IDENTITY
---------------------------------------------------
-
-Which agent are you?
-  1. Nova (default)
-  2. Pixel
-  3. Bolt
-  4. Scout
-
-Enter number or name: 1
-
-👋 Hello, Nova!
-
---------------------------------------------------
-📋 SLACK CONFIGURATION
---------------------------------------------------
-
-Fetching available channels...
-Found 5 channels
-Default Slack channel [#logo-creator]: 
-
---------------------------------------------------
-📋 SCHEDULE CONFIGURATION
---------------------------------------------------
-
-Sync interval in minutes [60]: 
-Work hours start (HH:MM) [09:00]: 
-Work hours end (HH:MM) [17:00]: 
-Timezone [UTC]: 
-
---------------------------------------------------
-📋 CAPABILITY TESTS
---------------------------------------------------
-
-Running capability tests...
-
-🔍 Testing Slack connection...
-✅ Slack connection successful!
-   ✅ Can read channel history
-   ✅ Can send messages
-
-🔍 Testing GitHub connection...
-✅ GitHub CLI authenticated!
-   📁 Current repo: NinjaTech-AI/agent-team-logo-creator
-
-🔍 Testing Claude CLI...
-✅ Claude CLI working!
-   Response: Hello! How can I help you today?...
-
---------------------------------------------------
-📋 INTEGRATION TEST
---------------------------------------------------
-
-Send a test message to Slack? (yes/no) [yes]: yes
-
-🔍 Testing Slack send as Nova...
-✅ Successfully sent test message!
-
---------------------------------------------------
-📋 ONBOARDING SUMMARY
---------------------------------------------------
-
-Agent: Nova
-Default Channel: #logo-creator
-Schedule: Every 60 minutes
-Work Hours: 09:00 - 17:00 UTC
-
-Capabilities:
-  Slack: ✅
-  GitHub: ✅
-  Claude: ✅
-
-✅ Configuration saved to /root/.agent_config.json
-✅ Slack configuration saved to /root/.slack_interface.json
-
-======================================================================
-🎉 ONBOARDING COMPLETE!
-======================================================================
-
-📖 Next steps for Nova:
-   1. Read your spec: agent-docs/NOVA_SPEC.md
-   2. Check Slack: python slack_interface.py read
-   3. Start working!
-```
+**Bad practice:**
+- Assuming default values
+- Guessing user preferences
+- Making decisions without confirmation
+- Proceeding when information is missing
