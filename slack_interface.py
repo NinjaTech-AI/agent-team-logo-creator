@@ -6,8 +6,9 @@ A command-line tool and Python API for interacting with Slack workspaces.
 Supports agent-based messaging with custom avatars, file uploads, and more.
 
 Token Sources (in priority order):
-    1. /dev/shm/mcp-token - Auto-populated when you click 'Connect' in chat
-    2. Environment variables: SLACK_TOKEN, SLACK_BOT_TOKEN
+    1. Cached config (~/.slack_interface.json) - persisted from first connection
+    2. /dev/shm/mcp-token - Auto-populated when you click 'Connect' in chat
+    3. Environment variables: SLACK_TOKEN, SLACK_BOT_TOKEN
 
 Token Types:
     - User Token (xoxp-*): Full user permissions, can access all user's channels
@@ -21,17 +22,22 @@ Required Scopes:
     - files:write        - Upload files (optional, for file uploads)
     - files:read         - Read file info (optional)
 
+First-Time Setup:
+    1. Set your default channel:
+        python slack_interface.py config --set-channel "#your-channel"
+    
+    2. Set your default agent:
+        python slack_interface.py config --set-agent nova
+
 Usage:
     python slack_interface.py --help
+    python slack_interface.py config                    # Show/set configuration
     python slack_interface.py agents                    # List all available agents
-    python slack_interface.py scopes                    # Show available scopes
     python slack_interface.py channels                  # List all channels
     python slack_interface.py users                     # List all users
-    python slack_interface.py read                      # Read from default channel
-    python slack_interface.py say -a nova "message"     # Send as Nova agent
     python slack_interface.py say "message"             # Send as default agent
+    python slack_interface.py read                      # Read from default channel
     python slack_interface.py upload file.png           # Upload file to default channel
-    python slack_interface.py config                    # Show/set configuration
 
 Configuration:
     The tool uses a config file at ~/.slack_interface.json:
@@ -56,8 +62,12 @@ Agents:
     scout - QA Engineer (🔍 green)
 
 Examples:
-    # Send message as agent
-    python slack_interface.py say -a nova "Sprint planning at 2pm!"
+    # First-time setup
+    python slack_interface.py config --set-channel "#logo-creator"
+    python slack_interface.py config --set-agent pixel
+    
+    # Send message as configured agent
+    python slack_interface.py say "Sprint planning at 2pm!"
     
     # Upload file with comment
     python slack_interface.py upload designs/mockup.png -m "New design ready!"
@@ -1029,48 +1039,35 @@ def cmd_config(client: SlackClient, tokens: SlackTokens, args) -> None:
 
 
 def cmd_say(client: SlackClient, tokens: SlackTokens, args) -> None:
-    """Send a message to the default channel as a specific agent."""
+    """Send a message to the default channel as the configured agent."""
     config = SlackConfig.load(args.config_file)
     
-    # Determine agent: CLI arg > config default (REQUIRED)
-    agent = None
-    if hasattr(args, 'agent') and args.agent:
-        agent = args.agent.lower()
-    elif config.default_agent:
-        agent = config.default_agent.lower()
+    # Use agent from config (REQUIRED - must be set first)
+    agent = config.default_agent.lower() if config.default_agent else None
     
     if not agent:
-        print("❌ No agent specified and no default agent configured", file=sys.stderr)
+        print("❌ No default agent configured", file=sys.stderr)
         print("\n🤖 The 'say' command requires an agent identity.", file=sys.stderr)
-        print("\n💡 To specify an agent:", file=sys.stderr)
-        print("   python slack_interface.py say -a nova 'message'", file=sys.stderr)
-        print("   python slack_interface.py say -a pixel 'message'", file=sys.stderr)
-        print("   python slack_interface.py say -a bolt 'message'", file=sys.stderr)
-        print("   python slack_interface.py say -a scout 'message'", file=sys.stderr)
-        print("\n💡 Or set a default agent:", file=sys.stderr)
+        print("\n💡 First, set your default agent:", file=sys.stderr)
         print("   python slack_interface.py config --set-agent nova", file=sys.stderr)
         print(f"\n🤖 Available agents: {', '.join(AGENT_AVATARS.keys())}", file=sys.stderr)
         sys.exit(1)
     
     # Validate agent
     if agent not in AGENT_AVATARS:
-        print(f"❌ Invalid agent: {agent}", file=sys.stderr)
-        print(f"   Valid agents: {', '.join(AGENT_AVATARS.keys())}", file=sys.stderr)
+        print(f"❌ Invalid agent in config: {agent}", file=sys.stderr)
+        print(f"\n💡 Set a valid agent:", file=sys.stderr)
+        print(f"   python slack_interface.py config --set-agent nova", file=sys.stderr)
+        print(f"\n🤖 Valid agents: {', '.join(AGENT_AVATARS.keys())}", file=sys.stderr)
         sys.exit(1)
     
-    # Determine channel: CLI arg > config default
-    channel = None
-    if hasattr(args, 'channel') and args.channel:
-        channel = args.channel
-    else:
-        channel = config.get_default_channel()
+    # Use channel from config (REQUIRED - must be set first)
+    channel = config.get_default_channel()
     
     if not channel:
-        print("❌ No channel specified and no default channel configured", file=sys.stderr)
-        print("\n💡 To set a default channel:", file=sys.stderr)
+        print("❌ No default channel configured", file=sys.stderr)
+        print("\n💡 First, set your default channel:", file=sys.stderr)
         print("   python slack_interface.py config --set-channel '#channel-name'", file=sys.stderr)
-        print("\n   Or specify channel with -c:", file=sys.stderr)
-        print("   python slack_interface.py say -a nova -c '#channel' 'message'", file=sys.stderr)
         sys.exit(1)
     
     # Prefer bot token for sending messages (supports custom username/icon)
@@ -1542,9 +1539,13 @@ def main():
         description='Slack Interface CLI - Interact with Slack from the command line',
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
+First-time setup:
+  %(prog)s config --set-channel "#your-channel"
+  %(prog)s config --set-agent nova
+
 Examples:
   %(prog)s agents                          List available agents
-  %(prog)s say -a nova "Hello team!"       Send message as Nova
+  %(prog)s say "Hello team!"               Send message as configured agent
   %(prog)s read -l 20                      Read last 20 messages
   %(prog)s upload design.png -m "Review"   Upload file with comment
   %(prog)s scopes                          Show token scopes
@@ -1569,12 +1570,9 @@ For more info: https://github.com/NinjaTech-AI/agent-team-logo-creator
     config_parser.add_argument('--set-agent', metavar='AGENT',
                                help='Set default agent (nova, pixel, bolt, scout)')
     
-    # Say command (send to default channel as a specific agent)
-    say_parser = subparsers.add_parser('say', help='Send message as an agent (agent required)')
+    # Say command (send to default channel as configured agent)
+    say_parser = subparsers.add_parser('say', help='Send message as configured agent')
     say_parser.add_argument('message', help='Message text')
-    say_parser.add_argument('-a', '--agent', choices=['nova', 'pixel', 'bolt', 'scout'],
-                           help='Agent to send as (required if no default agent set)')
-    say_parser.add_argument('-c', '--channel', help='Override default channel')
     say_parser.add_argument('-t', '--thread', help='Thread timestamp for reply')
     
     # Read command (read messages from default channel)
