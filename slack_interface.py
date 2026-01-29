@@ -1762,40 +1762,45 @@ class SlackInterface:
     
     def upload_file(self, file_path: str, channel: Optional[str] = None,
                     title: Optional[str] = None, comment: Optional[str] = None,
-                    thread_ts: Optional[str] = None, use_v2: bool = True) -> Dict:
+                    thread_ts: Optional[str] = None, use_v2: bool = True,
+                    agent: Optional[str] = None) -> Dict:
         """
         Upload a file to the default channel or specified channel.
+        
+        Uses agent impersonation: first posts a message as the agent with the
+        file title, then uploads the file as a reply to that message.
         
         Uses the newer files.uploadV2 API by default (recommended).
         The legacy files.upload API is deprecated but available via use_v2=False.
         
-        Requires 'files:write' scope on the token.
+        Requires 'files:write' and 'chat:write' scopes on the token.
         
         Args:
             file_path: Path to file on disk
             channel: Optional channel override (uses default if not specified)
-            title: Optional title for the file
-            comment: Optional comment to post with the file
-            thread_ts: Optional thread timestamp for replies
+            title: Optional title for the file (used in the agent's message)
+            comment: Optional comment to include with the file
+            thread_ts: Optional thread timestamp to reply to (skips agent message)
             use_v2: Use the newer V2 API (default: True, recommended)
+            agent: Agent to impersonate (nova, pixel, bolt, scout). 
+                   Uses default_agent from config if not specified.
             
         Returns:
-            Slack API response dict with 'ok' and file info on success
+            Dict with 'ok', 'message_ts' (agent message), and 'file' info
             
         Raises:
             ValueError: If no channel specified and no default configured
             RuntimeError: If not connected to Slack
             
         Example:
-            # Upload an image with a comment
-            slack.upload_file("designs/mockup.png", 
-                            title="New Design", 
-                            comment="Here's the latest mockup!")
+            # Upload as default agent with title
+            slack.upload_file("designs/mockup.png", title="New Design Mockup")
             
-            # Upload to a specific channel in a thread
-            slack.upload_file("report.pdf", 
-                            channel="#reports",
-                            thread_ts="1234567890.123456")
+            # Upload as specific agent
+            slack.upload_file("report.pdf", title="Weekly Report", agent="nova")
+            
+            # Upload to existing thread (no agent message, just file)
+            slack.upload_file("fix.patch", thread_ts="1234567890.123456")
         """
         if not self.is_connected:
             raise RuntimeError("Slack not connected")
@@ -1811,24 +1816,71 @@ class SlackInterface:
         
         token = self.tokens.bot_token or self._token
         
+        # Get agent configuration
+        agent_name = agent or self.config.default_agent or "nova"
+        agent_config = get_agent_avatar(agent_name)
+        
+        # Determine the file title (use filename if not provided)
+        file_title = title or Path(file_path).name
+        
+        result = {
+            "ok": False,
+            "message_ts": None,
+            "file": None
+        }
+        
+        # If no thread_ts provided, post an agent message first with the title
+        upload_thread_ts = thread_ts
+        if not thread_ts and agent_config:
+            # Post the title message as the agent
+            message_text = f"*{file_title}*"
+            if comment:
+                message_text += f"\n{comment}"
+            
+            msg_response = self.client.send_message(
+                token, channel_id, message_text,
+                username=agent_config.get("name"),
+                icon_url=agent_config.get("icon_url"),
+                icon_emoji=agent_config.get("icon_emoji")
+            )
+            
+            if msg_response.get("ok"):
+                upload_thread_ts = msg_response.get("ts")
+                result["message_ts"] = upload_thread_ts
+            else:
+                # If message fails, still try to upload the file
+                result["message_error"] = msg_response.get("error")
+        
+        # Upload the file (as a reply if we have a thread_ts)
         if use_v2:
-            # Use the newer V2 API (recommended)
-            return self.client.upload_file_v2(
+            upload_response = self.client.upload_file_v2(
                 token, channel_id,
                 file_path=file_path,
-                title=title,
-                initial_comment=comment,
-                thread_ts=thread_ts
+                title=file_title,
+                thread_ts=upload_thread_ts
             )
         else:
-            # Fall back to legacy API (deprecated)
-            return self.client.upload_file(
+            upload_response = self.client.upload_file(
                 token, channel_id,
                 file_path=file_path,
-                title=title,
-                initial_comment=comment,
-                thread_ts=thread_ts
+                title=file_title,
+                thread_ts=upload_thread_ts
             )
+        
+        if upload_response.get("ok"):
+            result["ok"] = True
+            # V2 API returns 'files' array, legacy returns 'file' object
+            if "files" in upload_response:
+                result["file"] = upload_response["files"][0] if upload_response["files"] else None
+            else:
+                result["file"] = upload_response.get("file")
+        else:
+            result["upload_error"] = upload_response.get("error")
+            # If we at least posted the message, consider it partial success
+            if result.get("message_ts"):
+                result["ok"] = True  # Partial success
+        
+        return result
     
     def _resolve_channel_id(self, channel_name: str) -> str:
         """
