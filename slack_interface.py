@@ -943,9 +943,9 @@ def cmd_read(client: SlackClient, tokens: SlackTokens, args) -> None:
         print("   python slack_interface.py read -c '#channel'", file=sys.stderr)
         sys.exit(1)
     
-    # Prefer user token for reading (usually has broader access)
-    # Fall back to bot token if user token not available
-    token = tokens.access_token or tokens.bot_token
+    # Try bot token first for reading (usually has channels:history scope)
+    # Fall back to user token if bot token not available
+    token = tokens.bot_token or tokens.access_token
     if not token:
         print("❌ No valid token available", file=sys.stderr)
         sys.exit(1)
@@ -1735,8 +1735,8 @@ class SlackInterface:
         target_channel = channel or self.default_channel
         if not target_channel:
             raise ValueError("No channel specified and no default configured")
-        # Prefer user token for reading (usually has broader access)
-        token = self.tokens.access_token or self._token
+        # Prefer bot token for reading (usually has channels:history scope)
+        token = self.tokens.bot_token or self._token
         return self.client.get_channel_history(token, target_channel, limit)
     
     def join_channel(self, channel: str) -> Dict:
