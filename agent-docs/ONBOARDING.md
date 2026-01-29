@@ -116,6 +116,15 @@ gh repo view
 
 # Test 4: List files in project
 ls -la
+
+# Test 5: Test Claude CLI
+claude -p "hello world"
+```
+
+You can also run all tests at once using the orchestrator:
+
+```bash
+python src/orchestrator.py --test
 ```
 
 ### Step 5: Check Memory

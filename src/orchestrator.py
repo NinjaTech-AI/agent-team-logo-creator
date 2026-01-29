@@ -9,12 +9,14 @@ Usage:
     python src/orchestrator.py                    # Run configured agent
     python src/orchestrator.py --task "Interview Arash for PRD"
     python src/orchestrator.py --list             # List all agents
+    python src/orchestrator.py --test             # Run capability tests
 """
 
 import subprocess
 import argparse
 import json
 import sys
+import shutil
 from pathlib import Path
 from datetime import datetime
 
@@ -167,6 +169,162 @@ def run_agent(agent: dict, task: str = "") -> None:
     print(f"\n✅ {agent['name']} completed\n")
 
 
+def run_capability_tests() -> bool:
+    """
+    Run all capability tests and report results.
+    
+    Returns:
+        True if all tests pass, False otherwise
+    """
+    print("\n" + "=" * 60)
+    print("🧪 CAPABILITY TESTS")
+    print("=" * 60)
+    
+    results = {}
+    all_passed = True
+    
+    # Test 1: Config file
+    print("\n📋 Test 1: Configuration File")
+    config = load_config()
+    if config.get("default_agent"):
+        print(f"   ✅ Agent configured: {config.get('default_agent')}")
+        results["config"] = True
+    else:
+        print("   ❌ No agent configured")
+        results["config"] = False
+        all_passed = False
+    
+    if config.get("default_channel"):
+        print(f"   ✅ Channel configured: {config.get('default_channel')}")
+    else:
+        print("   ⚠️  No default channel configured")
+    
+    # Test 2: Slack Interface
+    print("\n📋 Test 2: Slack Interface")
+    slack_script = REPO_ROOT / "slack_interface.py"
+    if slack_script.exists():
+        try:
+            result = subprocess.run(
+                ["python3", str(slack_script), "scopes"],
+                capture_output=True,
+                text=True,
+                timeout=30
+            )
+            if result.returncode == 0 and "Valid" in result.stdout:
+                print("   ✅ Slack connection working")
+                results["slack"] = True
+            else:
+                print("   ❌ Slack connection failed")
+                results["slack"] = False
+                all_passed = False
+        except subprocess.TimeoutExpired:
+            print("   ❌ Slack test timed out")
+            results["slack"] = False
+            all_passed = False
+        except Exception as e:
+            print(f"   ❌ Slack test error: {e}")
+            results["slack"] = False
+            all_passed = False
+    else:
+        print("   ❌ slack_interface.py not found")
+        results["slack"] = False
+        all_passed = False
+    
+    # Test 3: GitHub CLI
+    print("\n📋 Test 3: GitHub CLI")
+    if shutil.which("gh"):
+        try:
+            result = subprocess.run(
+                ["gh", "auth", "status"],
+                capture_output=True,
+                text=True,
+                timeout=10
+            )
+            if result.returncode == 0:
+                print("   ✅ GitHub CLI authenticated")
+                results["github"] = True
+            else:
+                print("   ❌ GitHub CLI not authenticated")
+                results["github"] = False
+                all_passed = False
+        except Exception as e:
+            print(f"   ❌ GitHub test error: {e}")
+            results["github"] = False
+            all_passed = False
+    else:
+        print("   ❌ GitHub CLI (gh) not installed")
+        results["github"] = False
+        all_passed = False
+    
+    # Test 4: Claude CLI (optional - may not be available in all environments)
+    print("\n📋 Test 4: Claude CLI (optional)")
+    if shutil.which("claude"):
+        try:
+            result = subprocess.run(
+                ["claude", "-p", "hello world"],
+                capture_output=True,
+                text=True,
+                timeout=30
+            )
+            if result.returncode == 0:
+                print("   ✅ Claude CLI working")
+                results["claude"] = True
+            else:
+                print(f"   ⚠️  Claude CLI not responding (optional)")
+                results["claude"] = None  # Optional, don't fail
+        except subprocess.TimeoutExpired:
+            print("   ⚠️  Claude CLI timed out (optional)")
+            results["claude"] = None  # Optional, don't fail
+        except Exception as e:
+            print(f"   ⚠️  Claude CLI error: {e} (optional)")
+            results["claude"] = None  # Optional, don't fail
+    else:
+        print("   ⚠️  Claude CLI not installed (optional)")
+        results["claude"] = None  # Optional
+    
+    # Test 5: Project Files
+    print("\n📋 Test 5: Project Files")
+    required_files = [
+        "slack_interface.py",
+        "agent-docs/ONBOARDING.md",
+        "agent-docs/AGENT_PROTOCOL.md",
+        "memory",
+    ]
+    files_ok = True
+    for f in required_files:
+        path = REPO_ROOT / f
+        if path.exists():
+            print(f"   ✅ {f}")
+        else:
+            print(f"   ❌ {f} missing")
+            files_ok = False
+            all_passed = False
+    results["files"] = files_ok
+    
+    # Summary
+    print("\n" + "=" * 60)
+    print("📊 TEST SUMMARY")
+    print("=" * 60)
+    
+    for test, passed in results.items():
+        if passed is True:
+            status = "✅ PASS"
+        elif passed is False:
+            status = "❌ FAIL"
+        else:
+            status = "⚠️  SKIP"
+        print(f"   {test:12} {status}")
+    
+    print()
+    if all_passed:
+        print("🎉 All tests passed! Agent is ready to work.")
+    else:
+        print("⚠️  Some tests failed. Please fix issues before running agent.")
+    print("=" * 60 + "\n")
+    
+    return all_passed
+
+
 def main():
     parser = argparse.ArgumentParser(
         description='Agent Team Orchestrator',
@@ -176,6 +334,7 @@ Examples:
   python src/orchestrator.py                    Run configured agent
   python src/orchestrator.py --task "Do X"      Run with specific task
   python src/orchestrator.py --list             List all agents
+  python src/orchestrator.py --test             Run capability tests
 
 Configuration:
   Agent identity is read from ~/.agent_settings.json
@@ -184,8 +343,13 @@ Configuration:
     )
     parser.add_argument("--task", "-t", default="", help="Specific task for the agent")
     parser.add_argument("--list", "-l", action="store_true", help="List all available agents")
+    parser.add_argument("--test", action="store_true", help="Run capability tests")
     
     args = parser.parse_args()
+    
+    if args.test:
+        success = run_capability_tests()
+        sys.exit(0 if success else 1)
     
     if args.list:
         print("\n📋 Available Agents:\n")
