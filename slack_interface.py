@@ -6,7 +6,7 @@ A command-line tool and Python API for interacting with Slack workspaces.
 Supports agent-based messaging with custom avatars, file uploads, and more.
 
 Token Sources (in priority order):
-    1. Cached config (~/.slack_interface.json) - persisted from first connection
+    1. Cached config (~/.agent_settings.json) - persisted from first connection
     2. /dev/shm/mcp-token - Auto-populated when you click 'Connect' in chat
     3. Environment variables: SLACK_TOKEN, SLACK_BOT_TOKEN
 
@@ -40,7 +40,7 @@ Usage:
     python slack_interface.py upload file.png           # Upload file to default channel
 
 Configuration:
-    The tool uses a config file at ~/.slack_interface.json:
+    The tool uses a config file at ~/.agent_settings.json:
     
     {
         "default_channel": "#logo-creator",
@@ -148,13 +148,13 @@ def get_agent_avatar(agent_name: str) -> Optional[Dict[str, str]]:
 # ============================================================================
 # Configuration Management
 # ============================================================================
-# Configuration is persisted to ~/.slack_interface.json and includes:
+# Configuration is persisted to ~/.agent_settings.json and includes:
 # - default_channel: Channel name (e.g., "#logo-creator")
 # - default_channel_id: Channel ID (e.g., "C0AAAAMBR1R") - preferred for API calls
 # - default_agent: Default agent for 'say' command
 # - workspace: Workspace name (informational)
 
-DEFAULT_CONFIG_PATH = os.path.expanduser("~/.slack_interface.json")
+DEFAULT_CONFIG_PATH = os.path.expanduser("~/.agent_settings.json")
 
 
 @dataclass
@@ -183,7 +183,7 @@ class SlackConfig:
         Load configuration from JSON file.
         
         Args:
-            filepath: Path to config file (default: ~/.slack_interface.json)
+            filepath: Path to config file (default: ~/.agent_settings.json)
             
         Returns:
             SlackConfig instance with loaded values (or defaults if file missing)
@@ -208,7 +208,7 @@ class SlackConfig:
         Save configuration to JSON file.
         
         Args:
-            filepath: Path to save config (default: ~/.slack_interface.json)
+            filepath: Path to save config (default: ~/.agent_settings.json)
             quiet: If True, suppress success message
         """
         data = {
@@ -330,7 +330,7 @@ def get_slack_tokens(filepath: str = '/dev/shm/mcp-token',
     Extract Slack tokens from cached config, MCP token file, or environment variables.
     
     Token sources (in priority order):
-        1. Cached tokens in config file (~/.slack_interface.json)
+        1. Cached tokens in config file (~/.agent_settings.json)
         2. MCP token file (/dev/shm/mcp-token) - auto-populated by Connect button
         3. Environment variables:
            - SLACK_TOKEN or SLACK_MCP_XOXP_TOKEN (user token)
@@ -1744,7 +1744,7 @@ class SlackInterface:
         
         Args:
             token_file: Path to MCP token file (default: /dev/shm/mcp-token)
-            config_file: Path to config file (default: ~/.slack_interface.json)
+            config_file: Path to config file (default: ~/.agent_settings.json)
         """
         self.tokens = get_slack_tokens(token_file)
         self.config = SlackConfig.load(config_file)
@@ -1964,7 +1964,7 @@ class SlackInterface:
         
         Args:
             channel: Channel name (e.g., "#logo-creator") or ID (e.g., "C0AAAAMBR1R")
-            config_file: Path to save config (default: ~/.slack_interface.json)
+            config_file: Path to save config (default: ~/.agent_settings.json)
         """
         if channel.startswith('#'):
             # Try to resolve channel ID

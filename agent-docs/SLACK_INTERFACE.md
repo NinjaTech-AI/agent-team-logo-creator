@@ -95,7 +95,7 @@ python slack_interface.py say -a scout "Found 3 bugs in testing"
 
 ### Config File Location
 
-The configuration is stored at `~/.slack_interface.json`:
+The configuration is stored at `~/.agent_settings.json`:
 
 ```json
 {

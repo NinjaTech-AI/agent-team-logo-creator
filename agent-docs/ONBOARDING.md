@@ -131,7 +131,7 @@ cat memory/scout_memory.md     # For Scout
 
 ## Configuration Files
 
-### Slack Config (`~/.slack_interface.json`)
+### Slack Config (`~/.agent_settings.json`)
 
 ```json
 {
@@ -179,7 +179,7 @@ gh pr list
 
 ```bash
 # Check if tokens are cached
-cat ~/.slack_interface.json
+cat ~/.agent_settings.json
 
 # Check token file
 cat /dev/shm/mcp-token | grep Slack
