@@ -7,6 +7,7 @@ A powerful command-line tool and Python API for interacting with Slack workspace
 - 🔑 **Automatic Token Detection** - Reads tokens from `/dev/shm/mcp-token` or environment variables
 - 📢 **Default Channel Support** - Configure a default channel for quick messaging
 - 🤖 **Agent Avatars** - Send messages as specific agents with custom avatars
+- 📎 **File Uploads** - Upload files to channels (requires `files:write` scope)
 - 🐍 **Python API** - Use as a library in your Python scripts
 - 🔍 **Scope Detection** - Shows available permissions for each token type
 - 💬 **Full Slack Operations** - Send messages, list channels/users, get history, and more
@@ -53,6 +54,19 @@ python slack_interface.py say -a bolt "Building the feature now!"
 
 # Send to specific channel
 python slack_interface.py say -a pixel -c "#general" "Design review ready!"
+```
+
+### 4. Upload Files
+
+```bash
+# Upload file to default channel
+python slack_interface.py upload design.png
+
+# Upload with comment
+python slack_interface.py upload mockup.png -m "New design ready for review!"
+
+# Upload to specific channel
+python slack_interface.py upload report.pdf -c "#reports" --title "Q4 Report"
 ```
 
 ## Agents
@@ -145,6 +159,38 @@ python slack_interface.py say -a nova -c "#other-channel" "Message"
 python slack_interface.py say -a scout -t "1234567890.123456" "Thread reply"
 ```
 
+### File Uploads
+
+```bash
+# Upload file to default channel
+python slack_interface.py upload path/to/file.png
+
+# Upload with comment
+python slack_interface.py upload design.png -m "New design for review"
+
+# Upload with title
+python slack_interface.py upload report.pdf --title "Monthly Report"
+
+# Upload to specific channel
+python slack_interface.py upload data.csv -c "#data-team"
+
+# Upload as thread reply
+python slack_interface.py upload screenshot.png -t "1234567890.123456"
+```
+
+### Reading Messages
+
+```bash
+# Read from default channel (last 50 messages)
+python slack_interface.py read
+
+# Read specific number of messages
+python slack_interface.py read -l 100
+
+# Read from specific channel
+python slack_interface.py read -c "#general"
+```
+
 ### Generic Messaging (No Agent)
 
 ```bash
@@ -215,11 +261,36 @@ from slack_interface import SlackInterface
 # Initialize
 slack = SlackInterface()
 
-# Send as default agent to default channel
+# Check connection
+if not slack.is_connected:
+    print("Please connect Slack first!")
+    exit(1)
+
+# Send to default channel
 slack.say("Hello team!")
 
 # Send with custom username and icon
 slack.say("Hello!", username="Nova", icon_url="https://example.com/nova.png")
+```
+
+### File Upload Example
+
+```python
+from slack_interface import SlackInterface
+
+slack = SlackInterface()
+
+# Upload a file
+result = slack.upload_file(
+    "designs/mockup.png",
+    title="Homepage Mockup v2",
+    comment="Updated design based on feedback"
+)
+
+if result.get('ok'):
+    print(f"File uploaded: {result['file']['permalink']}")
+else:
+    print(f"Upload failed: {result.get('error')}")
 ```
 
 ### Full API Example
@@ -264,6 +335,13 @@ result = slack.say(
 )
 if result.get('ok'):
     print(f"Message sent! ts={result['ts']}")
+
+# Upload a file
+result = slack.upload_file(
+    "report.pdf",
+    title="Weekly Report",
+    comment="Here's the weekly status report"
+)
 
 # Join a channel
 slack.join_channel("#new-channel")
@@ -310,16 +388,35 @@ export SLACK_BOT_TOKEN='xoxb-your-bot-token'
 ## Token Types & Scopes
 
 ### User Token (xoxp-*)
-- Full user permissions
-- Can access all channels user is in
-- Can search messages
-- Required scopes: `channels:read`, `chat:write`, `users:read`
+- Acts as the authorizing user
+- Can access all channels the user is in
+- Can search messages (with `search:read` scope)
+- Scopes are granted during OAuth flow
 
 ### Bot Token (xoxb-*)
-- Bot-specific permissions
-- Limited to channels bot is invited to
-- Cannot search messages
-- Required scopes: `channels:read`, `chat:write`, `users:read`
+- Acts as the bot/app itself
+- Limited to channels where bot is invited
+- Supports custom username and icon in messages
+- Scopes are configured in app settings
+
+### Required Scopes by Feature
+
+| Feature | Required Scopes |
+|---------|-----------------|
+| **Basic Operations** | |
+| List channels | `channels:read` |
+| Read messages | `channels:history` |
+| Send messages | `chat:write` |
+| List users | `users:read` |
+| **File Operations** | |
+| Upload files | `files:write` |
+| Read file info | `files:read` |
+| **Channel Management** | |
+| Join channels | `channels:join` |
+| Create channels | `channels:manage` |
+| **Private Channels** | |
+| List private channels | `groups:read` |
+| Read private messages | `groups:history` |
 
 ## Troubleshooting
 
@@ -382,6 +479,16 @@ The token doesn't have required permissions.
 python slack_interface.py scopes
 ```
 
+### "files:write" Scope Missing (File Uploads)
+
+File uploads require the `files:write` scope.
+
+**Solution**: 
+1. Go to your Slack app settings at https://api.slack.com/apps
+2. Navigate to "OAuth & Permissions"
+3. Add `files:write` to Bot Token Scopes
+4. Reinstall the app to your workspace
+
 ## Examples
 
 ### Agent Communication Setup
@@ -418,7 +525,21 @@ python slack_interface.py say -a bolt "⚡ Feature branch merged to main"
 python slack_interface.py say -a scout "🔍 All tests passing - ready for release"
 ```
 
-### Channel Monitor
+### File Upload Workflow
+
+```bash
+# Upload design mockup with comment
+python slack_interface.py upload designs/homepage_v2.png \
+    -m "Updated homepage design based on feedback" \
+    --title "Homepage Mockup v2"
+
+# Upload test report
+python slack_interface.py upload reports/test_results.pdf \
+    -c "#qa-team" \
+    --title "Sprint 1 Test Results"
+```
+
+### Channel Monitor Script
 
 ```python
 from slack_interface import SlackInterface
@@ -434,6 +555,30 @@ for msg in reversed(messages):
     text = msg.get('text', '')[:50]
     print(f"  <{user}>: {text}")
 ```
+
+## API Reference
+
+### SlackInterface Class
+
+| Method | Description |
+|--------|-------------|
+| `say(message, channel, thread_ts, username, icon_emoji, icon_url)` | Send a message |
+| `upload_file(file_path, channel, title, comment, thread_ts)` | Upload a file |
+| `get_history(channel, limit)` | Get channel message history |
+| `list_channels(types)` | List all channels |
+| `list_users()` | List all users |
+| `join_channel(channel)` | Join a channel |
+| `create_channel(name, is_private)` | Create a new channel |
+| `set_default_channel(channel)` | Set default channel |
+| `get_scopes()` | Get available OAuth scopes |
+
+### Properties
+
+| Property | Description |
+|----------|-------------|
+| `is_connected` | Boolean - True if tokens are available |
+| `default_channel` | Default channel ID or name |
+| `default_channel_name` | Default channel name (e.g., "#logo-creator") |
 
 ## License
 

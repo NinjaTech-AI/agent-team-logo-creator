@@ -2,27 +2,39 @@
 """
 Slack Interface CLI
 
-A command-line tool to interact with Slack using tokens from /dev/shm/mcp-token.
-Automatically detects available scopes and provides various Slack operations.
+A command-line tool and Python API for interacting with Slack workspaces.
+Supports agent-based messaging with custom avatars, file uploads, and more.
 
-IMPORTANT: The 'say' command requires an agent identity (nova, pixel, bolt, scout).
-Either specify with -a flag or set a default agent in config.
+Token Sources (in priority order):
+    1. /dev/shm/mcp-token - Auto-populated when you click 'Connect' in chat
+    2. Environment variables: SLACK_TOKEN, SLACK_BOT_TOKEN
+
+Token Types:
+    - User Token (xoxp-*): Full user permissions, can access all user's channels
+    - Bot Token (xoxb-*): Bot permissions, limited to channels bot is invited to
+
+Required Scopes:
+    - channels:read      - List channels
+    - channels:history   - Read channel messages
+    - chat:write         - Send messages
+    - users:read         - List users
+    - files:write        - Upload files (optional, for file uploads)
+    - files:read         - Read file info (optional)
 
 Usage:
     python slack_interface.py --help
-    python slack_interface.py agents          # List all available agents
-    python slack_interface.py scopes          # Show available scopes for each token
-    python slack_interface.py channels        # List all channels
-    python slack_interface.py users           # List all users
-    python slack_interface.py send <channel> <message>  # Send a message (no agent)
-    python slack_interface.py history <channel>         # Get channel history
-    python slack_interface.py say -a nova <message>     # Send as Nova agent
-    python slack_interface.py say <message>             # Send as default agent
-    python slack_interface.py config          # Show/set configuration
+    python slack_interface.py agents                    # List all available agents
+    python slack_interface.py scopes                    # Show available scopes
+    python slack_interface.py channels                  # List all channels
+    python slack_interface.py users                     # List all users
+    python slack_interface.py read                      # Read from default channel
+    python slack_interface.py say -a nova "message"     # Send as Nova agent
+    python slack_interface.py say "message"             # Send as default agent
+    python slack_interface.py upload file.png           # Upload file to default channel
+    python slack_interface.py config                    # Show/set configuration
 
 Configuration:
-    The tool uses a config file at ~/.slack_interface.json or can be specified
-    with --config. The config file supports:
+    The tool uses a config file at ~/.slack_interface.json:
     
     {
         "default_channel": "#logo-creator",
@@ -38,10 +50,20 @@ Configuration:
         python slack_interface.py config --set-agent nova
 
 Agents:
-    nova  - Product Manager (purple robot)
-    pixel - UX Designer (pink robot)
-    bolt  - Full-Stack Developer (yellow robot)
-    scout - QA Engineer (green robot)
+    nova  - Product Manager (🌟 purple)
+    pixel - UX Designer (🎨 pink)
+    bolt  - Full-Stack Developer (⚡ yellow)
+    scout - QA Engineer (🔍 green)
+
+Examples:
+    # Send message as agent
+    python slack_interface.py say -a nova "Sprint planning at 2pm!"
+    
+    # Upload file with comment
+    python slack_interface.py upload designs/mockup.png -m "New design ready!"
+    
+    # Read recent messages
+    python slack_interface.py read -l 20
 """
 
 import argparse
@@ -49,15 +71,17 @@ import json
 import os
 import sys
 import requests
-from typing import Optional, Dict, List, Any
-from dataclasses import dataclass, field
+from typing import Optional, Dict, List, Any, Union
+from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 
 
 # ============================================================================
-# Agent Avatar URLs (Deployed to web)
+# Agent Configuration
 # ============================================================================
+# Each agent has a unique identity with custom avatar for Slack messages.
+# Avatars are hosted on a public URL and displayed in Slack when sending messages.
 
 AVATAR_BASE_URL = "https://sites.super.betamyninja.ai/44664728-914e-4c05-bdf2-d171ad4edcb3/5e27c2ca"
 
@@ -68,7 +92,7 @@ AGENT_AVATARS = {
         "emoji": "🌟",
         "color": "purple",
         "icon_url": f"{AVATAR_BASE_URL}/nova.png",
-        "icon_emoji": ":star:"
+        "icon_emoji": ":star:"  # Fallback if icon_url not supported
     },
     "pixel": {
         "name": "Pixel",
@@ -98,27 +122,58 @@ AGENT_AVATARS = {
 
 
 def get_agent_avatar(agent_name: str) -> Optional[Dict[str, str]]:
-    """Get avatar info for an agent by name"""
+    """
+    Get avatar configuration for an agent by name.
+    
+    Args:
+        agent_name: Agent identifier (nova, pixel, bolt, scout)
+        
+    Returns:
+        Dict with agent info (name, role, emoji, color, icon_url, icon_emoji)
+        or None if agent not found
+    """
     return AGENT_AVATARS.get(agent_name.lower())
 
 
 # ============================================================================
 # Configuration Management
 # ============================================================================
+# Configuration is persisted to ~/.slack_interface.json and includes:
+# - default_channel: Channel name (e.g., "#logo-creator")
+# - default_channel_id: Channel ID (e.g., "C0AAAAMBR1R") - preferred for API calls
+# - default_agent: Default agent for 'say' command
+# - workspace: Workspace name (informational)
 
 DEFAULT_CONFIG_PATH = os.path.expanduser("~/.slack_interface.json")
 
+
 @dataclass
 class SlackConfig:
-    """Configuration for Slack Interface"""
+    """
+    Configuration container for Slack Interface.
+    
+    Attributes:
+        default_channel: Channel name (e.g., "#logo-creator")
+        default_channel_id: Channel ID for API calls (e.g., "C0AAAAMBR1R")
+        default_agent: Default agent for say command (nova, pixel, bolt, scout)
+        workspace: Workspace name (informational only)
+    """
     default_channel: Optional[str] = None
     default_channel_id: Optional[str] = None
-    default_agent: Optional[str] = None  # Default agent for say command (nova, pixel, bolt, scout)
+    default_agent: Optional[str] = None
     workspace: Optional[str] = None
     
     @classmethod
     def load(cls, filepath: str = DEFAULT_CONFIG_PATH) -> 'SlackConfig':
-        """Load configuration from file"""
+        """
+        Load configuration from JSON file.
+        
+        Args:
+            filepath: Path to config file (default: ~/.slack_interface.json)
+            
+        Returns:
+            SlackConfig instance with loaded values (or defaults if file missing)
+        """
         config = cls()
         try:
             if os.path.exists(filepath):
@@ -132,15 +187,20 @@ class SlackConfig:
             print(f"⚠️ Warning: Could not load config: {e}", file=sys.stderr)
         return config
     
-    def save(self, filepath: str = DEFAULT_CONFIG_PATH):
-        """Save configuration to file"""
+    def save(self, filepath: str = DEFAULT_CONFIG_PATH) -> None:
+        """
+        Save configuration to JSON file.
+        
+        Args:
+            filepath: Path to save config (default: ~/.slack_interface.json)
+        """
         data = {
             'default_channel': self.default_channel,
             'default_channel_id': self.default_channel_id,
             'default_agent': self.default_agent,
             'workspace': self.workspace
         }
-        # Remove None values
+        # Remove None values for cleaner JSON
         data = {k: v for k, v in data.items() if v is not None}
         
         with open(filepath, 'w') as f:
@@ -148,17 +208,47 @@ class SlackConfig:
         print(f"✅ Configuration saved to {filepath}")
     
     def get_default_channel(self) -> Optional[str]:
-        """Get the default channel (ID preferred, then name)"""
+        """
+        Get the default channel identifier for API calls.
+        Prefers channel ID over name since IDs are more reliable.
+        
+        Returns:
+            Channel ID if available, otherwise channel name, or None
+        """
         return self.default_channel_id or self.default_channel
 
 
 # ============================================================================
 # Token Management
 # ============================================================================
+# Slack uses different token types with different capabilities:
+#
+# User Token (xoxp-*):
+#   - Acts as the user who authorized the app
+#   - Can access all channels the user is in
+#   - Can search messages (with search:read scope)
+#   - Scopes are granted during OAuth flow
+#
+# Bot Token (xoxb-*):
+#   - Acts as the bot/app itself
+#   - Can only access channels where bot is invited
+#   - Better for automated messaging (custom username/icon)
+#   - Scopes are configured in app settings
+#
+# For sending messages with custom avatars, bot tokens are preferred
+# because they support the username and icon_url parameters.
 
 @dataclass
 class SlackTokens:
-    """Container for Slack tokens"""
+    """
+    Container for Slack authentication tokens.
+    
+    Attributes:
+        access_token: User token (xoxp-*) - acts as the authorizing user
+        bot_token: Bot token (xoxb-*) - acts as the bot/app
+        xoxc_token: Browser token (xoxc-*) - for browser-based auth (rarely used)
+        xoxd_token: Browser cookie (xoxd-*) - for browser-based auth (rarely used)
+    """
     access_token: Optional[str] = None  # xoxp-* (user token)
     bot_token: Optional[str] = None     # xoxb-* (bot token)
     xoxc_token: Optional[str] = None    # xoxc-* (browser token)
@@ -166,7 +256,20 @@ class SlackTokens:
 
 
 def parse_mcp_tokens(filepath: str = '/dev/shm/mcp-token') -> Dict[str, Any]:
-    """Parse all tokens from the MCP token file"""
+    """
+    Parse all tokens from the MCP token file.
+    
+    The MCP token file contains credentials for various services in the format:
+        ServiceName=value
+    or for JSON values:
+        ServiceName={"key": "value"}
+    
+    Args:
+        filepath: Path to MCP token file (default: /dev/shm/mcp-token)
+        
+    Returns:
+        Dict mapping service names to their token values
+    """
     tokens = {}
     
     try:
@@ -179,12 +282,12 @@ def parse_mcp_tokens(filepath: str = '/dev/shm/mcp-token') -> Dict[str, Any]:
                 key = key.strip()
                 value = value.strip()
                 
-                # Try to parse as JSON
+                # Try to parse JSON values (e.g., Slack tokens)
                 if value.startswith('{'):
                     try:
                         value = json.loads(value)
                     except json.JSONDecodeError:
-                        pass
+                        pass  # Keep as string if not valid JSON
                 
                 tokens[key] = value
         
@@ -198,10 +301,24 @@ def parse_mcp_tokens(filepath: str = '/dev/shm/mcp-token') -> Dict[str, Any]:
 
 
 def get_slack_tokens(filepath: str = '/dev/shm/mcp-token') -> SlackTokens:
-    """Extract Slack tokens from MCP token file or environment variables"""
+    """
+    Extract Slack tokens from MCP token file or environment variables.
+    
+    Token sources (in priority order):
+        1. MCP token file (/dev/shm/mcp-token) - auto-populated by Connect button
+        2. Environment variables:
+           - SLACK_TOKEN or SLACK_MCP_XOXP_TOKEN (user token)
+           - SLACK_BOT_TOKEN or SLACK_MCP_XOXB_TOKEN (bot token)
+    
+    Args:
+        filepath: Path to MCP token file
+        
+    Returns:
+        SlackTokens instance with available tokens
+    """
     tokens = SlackTokens()
     
-    # Try to get from file first
+    # Try to get from MCP token file first
     all_tokens = parse_mcp_tokens(filepath)
     slack_data = all_tokens.get('Slack', {})
     
@@ -228,25 +345,63 @@ def get_slack_tokens(filepath: str = '/dev/shm/mcp-token') -> SlackTokens:
 # ============================================================================
 # Slack API Client
 # ============================================================================
+# Low-level client for Slack Web API calls.
+# See https://api.slack.com/methods for full API documentation.
 
 class SlackClient:
-    """Slack API client with automatic token selection"""
+    """
+    Low-level Slack API client with automatic token handling.
+    
+    This client provides direct access to Slack Web API methods.
+    For higher-level operations, use the SlackInterface class instead.
+    
+    Attributes:
+        tokens: SlackTokens instance with available tokens
+        
+    Example:
+        tokens = get_slack_tokens()
+        client = SlackClient(tokens)
+        result = client.send_message(tokens.bot_token, "#general", "Hello!")
+    """
     
     BASE_URL = "https://slack.com/api"
     
     def __init__(self, tokens: SlackTokens):
+        """
+        Initialize Slack client with tokens.
+        
+        Args:
+            tokens: SlackTokens instance containing available tokens
+        """
         self.tokens = tokens
         self._scopes_cache: Dict[str, List[str]] = {}
     
     def _get_headers(self, token: str) -> Dict[str, str]:
-        """Get headers for API request"""
+        """Get HTTP headers for API request with Bearer token auth."""
         return {
             "Authorization": f"Bearer {token}",
             "Content-Type": "application/json"
         }
     
+    def _get_headers_multipart(self, token: str) -> Dict[str, str]:
+        """Get HTTP headers for multipart/form-data requests (file uploads)."""
+        return {
+            "Authorization": f"Bearer {token}"
+            # Note: Don't set Content-Type for multipart - requests handles it
+        }
+    
     def _api_call(self, method: str, token: str, params: Optional[Dict] = None) -> Dict:
-        """Make a Slack API call"""
+        """
+        Make a Slack API call.
+        
+        Args:
+            method: API method name (e.g., "chat.postMessage")
+            token: Authentication token to use
+            params: Optional parameters for the API call
+            
+        Returns:
+            API response as dict (always contains 'ok' boolean)
+        """
         url = f"{self.BASE_URL}/{method}"
         headers = self._get_headers(token)
         
@@ -261,15 +416,36 @@ class SlackClient:
             return {"ok": False, "error": str(e)}
     
     def test_auth(self, token: str) -> Dict:
-        """Test authentication and get token info"""
+        """
+        Test authentication and get token info.
+        
+        API Method: auth.test
+        Required Scopes: None (works with any valid token)
+        
+        Args:
+            token: Token to test
+            
+        Returns:
+            Dict with 'ok', 'user', 'team', 'url' on success
+        """
         return self._api_call("auth.test", token)
     
     def get_scopes(self, token: str) -> List[str]:
-        """Get available scopes for a token"""
+        """
+        Get available OAuth scopes for a token.
+        
+        Scopes are returned in the x-oauth-scopes response header.
+        Results are cached to avoid repeated API calls.
+        
+        Args:
+            token: Token to check scopes for
+            
+        Returns:
+            List of scope strings (e.g., ["chat:write", "channels:read"])
+        """
         if token in self._scopes_cache:
             return self._scopes_cache[token]
         
-        # Make a request and check the response headers
         url = f"{self.BASE_URL}/auth.test"
         headers = self._get_headers(token)
         
@@ -284,7 +460,20 @@ class SlackClient:
     
     def list_channels(self, token: str, types: str = "public_channel,private_channel", 
                       limit: int = 200) -> List[Dict]:
-        """List all channels"""
+        """
+        List all channels in the workspace.
+        
+        API Method: conversations.list
+        Required Scopes: channels:read, groups:read (for private channels)
+        
+        Args:
+            token: Authentication token
+            types: Comma-separated channel types (public_channel, private_channel, mpim, im)
+            limit: Max channels per page (max 200, handles pagination automatically)
+            
+        Returns:
+            List of channel dicts with 'id', 'name', 'num_members', etc.
+        """
         all_channels = []
         cursor = None
         
@@ -306,7 +495,7 @@ class SlackClient:
             channels = result.get("channels", [])
             all_channels.extend(channels)
             
-            # Check for pagination
+            # Handle pagination
             cursor = result.get("response_metadata", {}).get("next_cursor")
             if not cursor:
                 break
@@ -314,7 +503,19 @@ class SlackClient:
         return all_channels
     
     def list_users(self, token: str, limit: int = 200) -> List[Dict]:
-        """List all users"""
+        """
+        List all users in the workspace.
+        
+        API Method: users.list
+        Required Scopes: users:read
+        
+        Args:
+            token: Authentication token
+            limit: Max users per page (handles pagination automatically)
+            
+        Returns:
+            List of user dicts with 'id', 'name', 'real_name', 'profile', etc.
+        """
         all_users = []
         cursor = None
         
@@ -339,7 +540,21 @@ class SlackClient:
         return all_users
     
     def get_channel_history(self, token: str, channel: str, limit: int = 50) -> List[Dict]:
-        """Get channel message history"""
+        """
+        Get message history from a channel.
+        
+        API Method: conversations.history
+        Required Scopes: channels:history (public), groups:history (private)
+        
+        Args:
+            token: Authentication token
+            channel: Channel ID (e.g., "C0AAAAMBR1R")
+            limit: Number of messages to retrieve (max 1000)
+            
+        Returns:
+            List of message dicts with 'text', 'user', 'ts', etc.
+            Messages are in reverse chronological order (newest first)
+        """
         params = {
             "channel": channel,
             "limit": limit
@@ -358,7 +573,27 @@ class SlackClient:
                      username: Optional[str] = None,
                      icon_emoji: Optional[str] = None,
                      icon_url: Optional[str] = None) -> Dict:
-        """Send a message to a channel with optional custom username and icon"""
+        """
+        Send a message to a channel.
+        
+        API Method: chat.postMessage
+        Required Scopes: chat:write
+        
+        Note: username, icon_emoji, and icon_url only work with bot tokens
+        and require chat:write.customize scope for full customization.
+        
+        Args:
+            token: Authentication token (bot token preferred for custom identity)
+            channel: Channel ID or name
+            text: Message text (supports Slack markdown)
+            thread_ts: Thread timestamp for replies (optional)
+            username: Custom bot username (optional, bot token only)
+            icon_emoji: Custom emoji icon like ":robot_face:" (optional)
+            icon_url: Custom icon image URL (optional, overrides icon_emoji)
+            
+        Returns:
+            API response with 'ok', 'ts' (timestamp), 'channel' on success
+        """
         params = {
             "channel": channel,
             "text": text
@@ -376,18 +611,138 @@ class SlackClient:
         
         return self._api_call("chat.postMessage", token, params)
     
+    def upload_file(self, token: str, channels: Union[str, List[str]], 
+                    file_path: Optional[str] = None,
+                    content: Optional[str] = None,
+                    filename: Optional[str] = None,
+                    title: Optional[str] = None,
+                    initial_comment: Optional[str] = None,
+                    thread_ts: Optional[str] = None) -> Dict:
+        """
+        Upload a file to Slack.
+        
+        API Method: files.upload
+        Required Scopes: files:write
+        
+        You can either provide a file_path to upload from disk, or provide
+        content directly as a string.
+        
+        Args:
+            token: Authentication token with files:write scope
+            channels: Channel ID(s) to share file to (string or list)
+            file_path: Path to file on disk (optional if content provided)
+            content: File content as string (optional if file_path provided)
+            filename: Filename to display in Slack (optional, derived from path)
+            title: Title for the file (optional)
+            initial_comment: Message to post with the file (optional)
+            thread_ts: Thread timestamp to post file as reply (optional)
+            
+        Returns:
+            API response with 'ok', 'file' object on success
+        """
+        url = f"{self.BASE_URL}/files.upload"
+        headers = self._get_headers_multipart(token)
+        
+        # Prepare form data
+        data = {}
+        
+        # Handle channels (can be string or list)
+        if isinstance(channels, list):
+            data['channels'] = ','.join(channels)
+        else:
+            data['channels'] = channels
+        
+        if filename:
+            data['filename'] = filename
+        if title:
+            data['title'] = title
+        if initial_comment:
+            data['initial_comment'] = initial_comment
+        if thread_ts:
+            data['thread_ts'] = thread_ts
+        
+        files = None
+        
+        try:
+            if file_path:
+                # Upload from file path
+                path = Path(file_path)
+                if not path.exists():
+                    return {"ok": False, "error": f"File not found: {file_path}"}
+                
+                if not filename:
+                    data['filename'] = path.name
+                
+                files = {'file': (path.name, open(path, 'rb'))}
+                response = requests.post(url, headers=headers, data=data, files=files, timeout=60)
+            elif content:
+                # Upload content directly
+                data['content'] = content
+                response = requests.post(url, headers=headers, data=data, timeout=60)
+            else:
+                return {"ok": False, "error": "Either file_path or content must be provided"}
+            
+            return response.json()
+            
+        except requests.RequestException as e:
+            return {"ok": False, "error": str(e)}
+        finally:
+            # Close file handle if opened
+            if files and 'file' in files:
+                files['file'][1].close()
+    
     def get_channel_info(self, token: str, channel: str) -> Dict:
-        """Get channel information"""
+        """
+        Get information about a channel.
+        
+        API Method: conversations.info
+        Required Scopes: channels:read (public), groups:read (private)
+        
+        Args:
+            token: Authentication token
+            channel: Channel ID
+            
+        Returns:
+            API response with 'ok', 'channel' object on success
+        """
         params = {"channel": channel}
         return self._api_call("conversations.info", token, params)
     
     def join_channel(self, token: str, channel: str) -> Dict:
-        """Join a channel"""
+        """
+        Join a channel.
+        
+        API Method: conversations.join
+        Required Scopes: channels:join
+        
+        Note: Bots can only join public channels. For private channels,
+        the bot must be invited by a channel member.
+        
+        Args:
+            token: Authentication token
+            channel: Channel ID to join
+            
+        Returns:
+            API response with 'ok', 'channel' object on success
+        """
         params = {"channel": channel}
         return self._api_call("conversations.join", token, params)
     
     def create_channel(self, token: str, name: str, is_private: bool = False) -> Dict:
-        """Create a new channel"""
+        """
+        Create a new channel.
+        
+        API Method: conversations.create
+        Required Scopes: channels:manage (public), groups:write (private)
+        
+        Args:
+            token: Authentication token
+            name: Channel name (lowercase, no spaces, max 80 chars)
+            is_private: Create as private channel (default: False)
+            
+        Returns:
+            API response with 'ok', 'channel' object on success
+        """
         params = {
             "name": name,
             "is_private": is_private
@@ -398,9 +753,11 @@ class SlackClient:
 # ============================================================================
 # CLI Commands
 # ============================================================================
+# Each cmd_* function implements a CLI subcommand.
+# Functions receive the client, tokens, and parsed args.
 
-def cmd_agents(client: SlackClient, tokens: SlackTokens, args):
-    """List all available agents with their avatars"""
+def cmd_agents(client: SlackClient, tokens: SlackTokens, args) -> None:
+    """List all available agents with their avatars."""
     print("\n" + "=" * 60)
     print("🤖 AVAILABLE AGENTS")
     print("=" * 60)
@@ -420,8 +777,8 @@ def cmd_agents(client: SlackClient, tokens: SlackTokens, args):
     print("=" * 60 + "\n")
 
 
-def cmd_config(client: SlackClient, tokens: SlackTokens, args):
-    """Show or set configuration"""
+def cmd_config(client: SlackClient, tokens: SlackTokens, args) -> None:
+    """Show or set configuration."""
     config = SlackConfig.load(args.config_file)
     
     # Set default channel
@@ -489,8 +846,8 @@ def cmd_config(client: SlackClient, tokens: SlackTokens, args):
     print("=" * 60 + "\n")
 
 
-def cmd_say(client: SlackClient, tokens: SlackTokens, args):
-    """Send a message to the default channel as a specific agent"""
+def cmd_say(client: SlackClient, tokens: SlackTokens, args) -> None:
+    """Send a message to the default channel as a specific agent."""
     config = SlackConfig.load(args.config_file)
     
     # Determine agent: CLI arg > config default (REQUIRED)
@@ -534,7 +891,7 @@ def cmd_say(client: SlackClient, tokens: SlackTokens, args):
         print("   python slack_interface.py say -a nova -c '#channel' 'message'", file=sys.stderr)
         sys.exit(1)
     
-    # Prefer bot token for sending messages (customizable username/icon)
+    # Prefer bot token for sending messages (supports custom username/icon)
     token = tokens.bot_token or tokens.access_token
     if not token:
         print("❌ No valid token available", file=sys.stderr)
@@ -567,8 +924,8 @@ def cmd_say(client: SlackClient, tokens: SlackTokens, args):
         sys.exit(1)
 
 
-def cmd_read(client: SlackClient, tokens: SlackTokens, args):
-    """Read messages from the default channel"""
+def cmd_read(client: SlackClient, tokens: SlackTokens, args) -> None:
+    """Read messages from the default channel."""
     config = SlackConfig.load(args.config_file)
     
     # Determine channel: CLI arg > config default
@@ -586,8 +943,9 @@ def cmd_read(client: SlackClient, tokens: SlackTokens, args):
         print("   python slack_interface.py read -c '#channel'", file=sys.stderr)
         sys.exit(1)
     
-    # Try bot token first (has channels:history scope), then user token
-    token = tokens.bot_token or tokens.access_token
+    # Prefer user token for reading (usually has broader access)
+    # Fall back to bot token if user token not available
+    token = tokens.access_token or tokens.bot_token
     if not token:
         print("❌ No valid token available", file=sys.stderr)
         sys.exit(1)
@@ -650,8 +1008,78 @@ def cmd_read(client: SlackClient, tokens: SlackTokens, args):
     print(f"\n📊 Total: {len(messages)} messages from {channel_display}")
 
 
-def cmd_scopes(client: SlackClient, tokens: SlackTokens, args):
-    """Show available scopes for each token"""
+def cmd_upload(client: SlackClient, tokens: SlackTokens, args) -> None:
+    """Upload a file to a channel."""
+    config = SlackConfig.load(args.config_file)
+    
+    # Determine channel: CLI arg > config default
+    channel = None
+    if hasattr(args, 'channel') and args.channel:
+        channel = args.channel
+    else:
+        channel = config.get_default_channel()
+    
+    if not channel:
+        print("❌ No channel specified and no default channel configured", file=sys.stderr)
+        print("\n💡 To set a default channel:", file=sys.stderr)
+        print("   python slack_interface.py config --set-channel '#channel-name'", file=sys.stderr)
+        print("\n   Or specify channel with -c:", file=sys.stderr)
+        print("   python slack_interface.py upload file.png -c '#channel'", file=sys.stderr)
+        sys.exit(1)
+    
+    # Prefer bot token for uploads
+    token = tokens.bot_token or tokens.access_token
+    if not token:
+        print("❌ No valid token available", file=sys.stderr)
+        sys.exit(1)
+    
+    # Check for files:write scope
+    scopes = client.get_scopes(token)
+    if scopes and 'files:write' not in scopes:
+        print("⚠️ Warning: Token may not have 'files:write' scope", file=sys.stderr)
+        print("   File upload might fail. Check scopes with: python slack_interface.py scopes", file=sys.stderr)
+    
+    file_path = args.file
+    title = args.title if hasattr(args, 'title') and args.title else None
+    comment = args.message if hasattr(args, 'message') and args.message else None
+    thread = args.thread if hasattr(args, 'thread') else None
+    
+    # Show upload info
+    channel_display = channel if channel.startswith('#') else f"ID:{channel}"
+    print(f"\n📤 Uploading to {channel_display}...")
+    print(f"   File: {file_path}")
+    if title:
+        print(f"   Title: {title}")
+    if comment:
+        print(f"   Comment: {comment[:50]}{'...' if len(comment) > 50 else ''}")
+    
+    result = client.upload_file(
+        token, channel, 
+        file_path=file_path,
+        title=title,
+        initial_comment=comment,
+        thread_ts=thread
+    )
+    
+    if result.get("ok"):
+        file_info = result.get('file', {})
+        print(f"✅ File uploaded successfully!")
+        print(f"   Name: {file_info.get('name', 'N/A')}")
+        print(f"   Size: {file_info.get('size', 0)} bytes")
+        print(f"   URL: {file_info.get('permalink', 'N/A')}")
+    else:
+        error = result.get('error', 'Unknown error')
+        print(f"❌ Failed to upload: {error}")
+        if error == 'missing_scope':
+            print("\n💡 The 'files:write' scope is required for file uploads.")
+            print("   Add this scope to your Slack app at: https://api.slack.com/apps")
+        elif error == 'channel_not_found':
+            print("\n💡 Channel not found. Make sure the bot is a member of the channel.")
+        sys.exit(1)
+
+
+def cmd_scopes(client: SlackClient, tokens: SlackTokens, args) -> None:
+    """Show available scopes for each token."""
     print("\n" + "=" * 70)
     print("🔑 SLACK TOKEN SCOPES")
     print("=" * 70)
@@ -702,11 +1130,29 @@ def cmd_scopes(client: SlackClient, tokens: SlackTokens, args):
         else:
             print("   ⚠️  No scopes found (may be a legacy token)")
     
-    print("\n" + "=" * 70)
+    # Show required scopes info
+    print("\n" + "-" * 70)
+    print("📋 REQUIRED SCOPES BY FEATURE:")
+    print("-" * 70)
+    print("   Basic Operations:")
+    print("      • channels:read      - List channels")
+    print("      • channels:history   - Read channel messages")
+    print("      • chat:write         - Send messages")
+    print("      • users:read         - List users")
+    print("   File Uploads:")
+    print("      • files:write        - Upload files")
+    print("      • files:read         - Read file info (optional)")
+    print("   Channel Management:")
+    print("      • channels:join      - Join public channels")
+    print("      • channels:manage    - Create/archive channels")
+    print("   Private Channels:")
+    print("      • groups:read        - List private channels")
+    print("      • groups:history     - Read private channel messages")
+    print("=" * 70 + "\n")
 
 
-def cmd_channels(client: SlackClient, tokens: SlackTokens, args):
-    """List all channels"""
+def cmd_channels(client: SlackClient, tokens: SlackTokens, args) -> None:
+    """List all channels."""
     token = tokens.access_token or tokens.bot_token
     if not token:
         print("❌ No valid token available", file=sys.stderr)
@@ -744,8 +1190,8 @@ def cmd_channels(client: SlackClient, tokens: SlackTokens, args):
         print(f"\n💾 Saved to {args.output}")
 
 
-def cmd_users(client: SlackClient, tokens: SlackTokens, args):
-    """List all users"""
+def cmd_users(client: SlackClient, tokens: SlackTokens, args) -> None:
+    """List all users."""
     token = tokens.access_token or tokens.bot_token
     if not token:
         print("❌ No valid token available", file=sys.stderr)
@@ -780,8 +1226,8 @@ def cmd_users(client: SlackClient, tokens: SlackTokens, args):
         print(f"\n💾 Saved to {args.output}")
 
 
-def cmd_history(client: SlackClient, tokens: SlackTokens, args):
-    """Get channel history"""
+def cmd_history(client: SlackClient, tokens: SlackTokens, args) -> None:
+    """Get channel history."""
     token = tokens.access_token or tokens.bot_token
     if not token:
         print("❌ No valid token available", file=sys.stderr)
@@ -798,28 +1244,28 @@ def cmd_history(client: SlackClient, tokens: SlackTokens, args):
         return
     
     print(f"\n💬 Last {len(messages)} messages:\n")
-    print("-" * 70)
     
     for msg in reversed(messages):
         user = msg.get('user', 'unknown')
         text = msg.get('text', '')[:100]
         ts = msg.get('ts', '')
         
-        # Convert timestamp
+        # Check for bot messages
+        if msg.get('bot_id') and msg.get('username'):
+            user = msg.get('username')
+        
         try:
             dt = datetime.fromtimestamp(float(ts))
-            time_str = dt.strftime('%Y-%m-%d %H:%M')
+            time_str = dt.strftime('%H:%M:%S')
         except:
             time_str = ts
         
-        print(f"[{time_str}] <{user}>: {text}")
-    
-    print("-" * 70)
+        print(f"[{time_str}] {user}: {text}")
 
 
-def cmd_send(client: SlackClient, tokens: SlackTokens, args):
-    """Send a message"""
-    token = tokens.access_token or tokens.bot_token
+def cmd_send(client: SlackClient, tokens: SlackTokens, args) -> None:
+    """Send a message without agent identity."""
+    token = tokens.bot_token or tokens.access_token
     if not token:
         print("❌ No valid token available", file=sys.stderr)
         return
@@ -828,39 +1274,38 @@ def cmd_send(client: SlackClient, tokens: SlackTokens, args):
     message = args.message
     thread = args.thread if hasattr(args, 'thread') else None
     
-    print(f"\n📤 Sending message to {channel}...")
+    print(f"\n📤 Sending to {channel}...")
     result = client.send_message(token, channel, message, thread)
     
     if result.get("ok"):
-        print(f"✅ Message sent successfully!")
-        print(f"   Channel: {result.get('channel')}")
+        print(f"✅ Message sent!")
         print(f"   Timestamp: {result.get('ts')}")
     else:
-        print(f"❌ Failed to send: {result.get('error', 'Unknown error')}")
+        print(f"❌ Failed: {result.get('error', 'Unknown error')}")
 
 
-def cmd_join(client: SlackClient, tokens: SlackTokens, args):
-    """Join a channel"""
-    token = tokens.access_token or tokens.bot_token
+def cmd_join(client: SlackClient, tokens: SlackTokens, args) -> None:
+    """Join a channel."""
+    token = tokens.bot_token or tokens.access_token
     if not token:
         print("❌ No valid token available", file=sys.stderr)
         return
     
     channel = args.channel
+    print(f"\n🚪 Joining {channel}...")
     
-    print(f"\n🚪 Joining channel {channel}...")
     result = client.join_channel(token, channel)
     
     if result.get("ok"):
         ch = result.get('channel', {})
-        print(f"✅ Successfully joined #{ch.get('name', channel)}!")
+        print(f"✅ Joined #{ch.get('name', channel)}")
     else:
-        print(f"❌ Failed to join: {result.get('error', 'Unknown error')}")
+        print(f"❌ Failed: {result.get('error', 'Unknown error')}")
 
 
-def cmd_create(client: SlackClient, tokens: SlackTokens, args):
-    """Create a channel"""
-    token = tokens.access_token or tokens.bot_token
+def cmd_create(client: SlackClient, tokens: SlackTokens, args) -> None:
+    """Create a new channel."""
+    token = tokens.bot_token or tokens.access_token
     if not token:
         print("❌ No valid token available", file=sys.stderr)
         return
@@ -868,41 +1313,41 @@ def cmd_create(client: SlackClient, tokens: SlackTokens, args):
     name = args.name
     is_private = args.private if hasattr(args, 'private') else False
     
-    print(f"\n🆕 Creating channel #{name}...")
+    print(f"\n🆕 Creating {'private ' if is_private else ''}channel #{name}...")
+    
     result = client.create_channel(token, name, is_private)
     
     if result.get("ok"):
         ch = result.get('channel', {})
-        print(f"✅ Successfully created #{ch.get('name')}!")
+        print(f"✅ Created #{ch.get('name', name)}")
         print(f"   ID: {ch.get('id')}")
     else:
-        print(f"❌ Failed to create: {result.get('error', 'Unknown error')}")
+        print(f"❌ Failed: {result.get('error', 'Unknown error')}")
 
 
-def cmd_info(client: SlackClient, tokens: SlackTokens, args):
-    """Get channel info"""
+def cmd_info(client: SlackClient, tokens: SlackTokens, args) -> None:
+    """Get channel info."""
     token = tokens.access_token or tokens.bot_token
     if not token:
         print("❌ No valid token available", file=sys.stderr)
         return
     
     channel = args.channel
-    
     print(f"\n🔍 Getting info for {channel}...")
+    
     result = client.get_channel_info(token, channel)
     
     if result.get("ok"):
         ch = result.get('channel', {})
-        print(f"\n📢 Channel Info:")
-        print(f"   Name: #{ch.get('name')}")
-        print(f"   ID: {ch.get('id')}")
-        print(f"   Members: {ch.get('num_members', 'N/A')}")
+        print(f"\n📢 Channel: #{ch.get('name', 'N/A')}")
+        print(f"   ID: {ch.get('id', 'N/A')}")
+        print(f"   Members: {ch.get('num_members', 0)}")
         print(f"   Private: {'Yes' if ch.get('is_private') else 'No'}")
         print(f"   Archived: {'Yes' if ch.get('is_archived') else 'No'}")
         print(f"   Topic: {ch.get('topic', {}).get('value', 'N/A')}")
         print(f"   Purpose: {ch.get('purpose', {}).get('value', 'N/A')}")
     else:
-        print(f"❌ Failed to get info: {result.get('error', 'Unknown error')}")
+        print(f"❌ Failed: {result.get('error', 'Unknown error')}")
 
 
 # ============================================================================
@@ -910,39 +1355,24 @@ def cmd_info(client: SlackClient, tokens: SlackTokens, args):
 # ============================================================================
 
 def main():
+    """Main CLI entry point."""
     parser = argparse.ArgumentParser(
-        description="Slack Interface CLI - Interact with Slack using tokens from /dev/shm/mcp-token",
+        description='Slack Interface CLI - Interact with Slack from the command line',
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  %(prog)s agents                    List all available agents
-  %(prog)s read                      Read messages from default channel
-  %(prog)s read -l 100               Read last 100 messages
-  %(prog)s say -a nova "Hello!"      Send as Nova agent to default channel
-  %(prog)s say -a bolt "Building..."  Send as Bolt agent
-  %(prog)s say "Hello!"              Send as default agent (if configured)
-  %(prog)s config                    Show current configuration
-  %(prog)s config --set-channel "#logo-creator"  Set default channel
-  %(prog)s config --set-agent nova   Set default agent
-  %(prog)s scopes                    Show available scopes for each token
-  %(prog)s channels                  List all channels
-  %(prog)s users                     List all users
-  %(prog)s history "#general"        Get history for specific channel
-  %(prog)s send "#general" "Hello!"  Send a message (no agent identity)
-  %(prog)s join "#logo-creator"      Join a channel
-  %(prog)s info "#general"           Get channel info
+  %(prog)s agents                          List available agents
+  %(prog)s say -a nova "Hello team!"       Send message as Nova
+  %(prog)s read -l 20                      Read last 20 messages
+  %(prog)s upload design.png -m "Review"   Upload file with comment
+  %(prog)s scopes                          Show token scopes
 
-Agents (required for 'say' command):
-  nova   - Product Manager (purple robot)
-  pixel  - UX Designer (pink robot)
-  bolt   - Full-Stack Developer (yellow robot)
-  scout  - QA Engineer (green robot)
+For more info: https://github.com/NinjaTech-AI/agent-team-logo-creator
         """
     )
-    
-    parser.add_argument('--token-file', '-f', default='/dev/shm/mcp-token',
-                        help='Path to token file (default: /dev/shm/mcp-token)')
-    parser.add_argument('--config-file', '-C', default=DEFAULT_CONFIG_PATH,
+    parser.add_argument('-T', '--token-file', default='/dev/shm/mcp-token',
+                        help='Path to MCP token file (default: /dev/shm/mcp-token)')
+    parser.add_argument('-C', '--config-file', default=DEFAULT_CONFIG_PATH,
                         help=f'Path to config file (default: {DEFAULT_CONFIG_PATH})')
     
     subparsers = parser.add_subparsers(dest='command', help='Available commands')
@@ -971,6 +1401,14 @@ Agents (required for 'say' command):
     read_parser.add_argument('-l', '--limit', type=int, default=50,
                             help='Number of messages to fetch (default: 50)')
     
+    # Upload command (upload file to channel)
+    upload_parser = subparsers.add_parser('upload', help='Upload a file to a channel')
+    upload_parser.add_argument('file', help='Path to file to upload')
+    upload_parser.add_argument('-c', '--channel', help='Override default channel')
+    upload_parser.add_argument('-m', '--message', help='Comment to post with file')
+    upload_parser.add_argument('--title', help='Title for the file')
+    upload_parser.add_argument('-t', '--thread', help='Thread timestamp for reply')
+    
     # Scopes command
     subparsers.add_parser('scopes', help='Show available scopes for each token')
     
@@ -993,7 +1431,7 @@ Agents (required for 'say' command):
                                 help='Number of messages (default: 20)')
     
     # Send command
-    send_parser = subparsers.add_parser('send', help='Send a message')
+    send_parser = subparsers.add_parser('send', help='Send a message (no agent identity)')
     send_parser.add_argument('channel', help='Channel ID or name')
     send_parser.add_argument('message', help='Message text')
     send_parser.add_argument('-t', '--thread', help='Thread timestamp for reply')
@@ -1058,6 +1496,7 @@ Agents (required for 'say' command):
         'config': cmd_config,
         'say': cmd_say,
         'read': cmd_read,
+        'upload': cmd_upload,
         'scopes': cmd_scopes,
         'channels': cmd_channels,
         'users': cmd_users,
@@ -1082,46 +1521,69 @@ class SlackInterface:
     """
     High-level Python API for Slack Interface.
     
-    Usage:
+    This class provides a convenient way to interact with Slack from Python code.
+    It handles token loading, configuration, and provides simple methods for
+    common operations.
+    
+    Attributes:
+        tokens: SlackTokens instance with available tokens
+        config: SlackConfig instance with user configuration
+        client: SlackClient instance for API calls
+    
+    Example:
         from slack_interface import SlackInterface
         
         # Initialize (auto-loads tokens and config)
         slack = SlackInterface()
         
-        # Send to default channel
+        # Check connection
+        if not slack.is_connected:
+            print("Please connect Slack first!")
+            exit(1)
+        
+        # Send message to default channel
         slack.say("Hello from Python!")
         
-        # Send to specific channel
-        slack.say("Hello!", channel="#general")
+        # Send to specific channel with custom identity
+        slack.say("Hello!", channel="#general", 
+                  username="Nova", icon_url="https://...")
         
-        # Get default channel info
-        print(slack.default_channel)
+        # Upload a file
+        slack.upload_file("design.png", comment="New design!")
         
-        # List channels
-        channels = slack.list_channels()
+        # Get channel history
+        messages = slack.get_history(limit=10)
+        for msg in messages:
+            print(f"{msg.get('user')}: {msg.get('text')}")
     """
     
     def __init__(self, token_file: str = '/dev/shm/mcp-token', 
                  config_file: str = DEFAULT_CONFIG_PATH):
-        """Initialize Slack Interface with tokens and config"""
+        """
+        Initialize Slack Interface with tokens and config.
+        
+        Args:
+            token_file: Path to MCP token file (default: /dev/shm/mcp-token)
+            config_file: Path to config file (default: ~/.slack_interface.json)
+        """
         self.tokens = get_slack_tokens(token_file)
         self.config = SlackConfig.load(config_file)
         self.client = SlackClient(self.tokens)
-        self._token = self.tokens.access_token or self.tokens.bot_token
+        self._token = self.tokens.bot_token or self.tokens.access_token
     
     @property
     def default_channel(self) -> Optional[str]:
-        """Get the default channel"""
+        """Get the default channel (ID preferred, then name)."""
         return self.config.get_default_channel()
     
     @property
     def default_channel_name(self) -> Optional[str]:
-        """Get the default channel name"""
+        """Get the default channel name (e.g., "#logo-creator")."""
         return self.config.default_channel
     
     @property
     def is_connected(self) -> bool:
-        """Check if Slack is connected (tokens available)"""
+        """Check if Slack is connected (tokens available)."""
         return self._token is not None
     
     def say(self, message: str, channel: Optional[str] = None, 
@@ -1133,15 +1595,15 @@ class SlackInterface:
         Send a message to the default channel or specified channel.
         
         Args:
-            message: The message text to send
+            message: The message text to send (supports Slack markdown)
             channel: Optional channel override (uses default if not specified)
             thread_ts: Optional thread timestamp for replies
             username: Optional custom bot username (e.g., "Nova", "Pixel")
             icon_emoji: Optional emoji icon (e.g., ":robot_face:", ":star:")
-            icon_url: Optional URL to custom icon image
+            icon_url: Optional URL to custom icon image (overrides icon_emoji)
             
         Returns:
-            Slack API response dict
+            Slack API response dict with 'ok', 'ts', 'channel' on success
             
         Raises:
             ValueError: If no channel specified and no default configured
@@ -1168,7 +1630,46 @@ class SlackInterface:
             username=username, icon_emoji=icon_emoji, icon_url=icon_url
         )
     
-    def set_default_channel(self, channel: str, config_file: str = DEFAULT_CONFIG_PATH):
+    def upload_file(self, file_path: str, channel: Optional[str] = None,
+                    title: Optional[str] = None, comment: Optional[str] = None,
+                    thread_ts: Optional[str] = None) -> Dict:
+        """
+        Upload a file to the default channel or specified channel.
+        
+        Requires 'files:write' scope on the token.
+        
+        Args:
+            file_path: Path to file on disk
+            channel: Optional channel override (uses default if not specified)
+            title: Optional title for the file
+            comment: Optional comment to post with the file
+            thread_ts: Optional thread timestamp for replies
+            
+        Returns:
+            Slack API response dict with 'ok', 'file' object on success
+            
+        Raises:
+            ValueError: If no channel specified and no default configured
+            RuntimeError: If not connected to Slack
+        """
+        if not self.is_connected:
+            raise RuntimeError("Slack not connected")
+        
+        target_channel = channel or self.default_channel
+        if not target_channel:
+            raise ValueError("No channel specified and no default configured")
+        
+        token = self.tokens.bot_token or self._token
+        
+        return self.client.upload_file(
+            token, target_channel,
+            file_path=file_path,
+            title=title,
+            initial_comment=comment,
+            thread_ts=thread_ts
+        )
+    
+    def set_default_channel(self, channel: str, config_file: str = DEFAULT_CONFIG_PATH) -> None:
         """
         Set the default channel for future messages.
         
@@ -1194,37 +1695,89 @@ class SlackInterface:
         self.config.save(config_file)
     
     def list_channels(self, types: str = "public_channel,private_channel") -> List[Dict]:
-        """List all channels"""
+        """
+        List all channels in the workspace.
+        
+        Args:
+            types: Comma-separated channel types to include
+            
+        Returns:
+            List of channel dicts with 'id', 'name', 'num_members', etc.
+        """
         if not self.is_connected:
             raise RuntimeError("Slack not connected")
         return self.client.list_channels(self._token, types)
     
     def list_users(self) -> List[Dict]:
-        """List all users"""
+        """
+        List all users in the workspace.
+        
+        Returns:
+            List of user dicts with 'id', 'name', 'real_name', etc.
+        """
         if not self.is_connected:
             raise RuntimeError("Slack not connected")
         return self.client.list_users(self._token)
     
     def get_history(self, channel: Optional[str] = None, limit: int = 50) -> List[Dict]:
-        """Get channel message history"""
+        """
+        Get channel message history.
+        
+        Args:
+            channel: Optional channel override (uses default if not specified)
+            limit: Number of messages to retrieve (default: 50)
+            
+        Returns:
+            List of message dicts (newest first)
+        """
         if not self.is_connected:
             raise RuntimeError("Slack not connected")
         target_channel = channel or self.default_channel
         if not target_channel:
             raise ValueError("No channel specified and no default configured")
-        return self.client.get_channel_history(self._token, target_channel, limit)
+        # Prefer user token for reading (usually has broader access)
+        token = self.tokens.access_token or self._token
+        return self.client.get_channel_history(token, target_channel, limit)
     
     def join_channel(self, channel: str) -> Dict:
-        """Join a channel"""
+        """
+        Join a channel.
+        
+        Args:
+            channel: Channel ID to join
+            
+        Returns:
+            API response dict
+        """
         if not self.is_connected:
             raise RuntimeError("Slack not connected")
         return self.client.join_channel(self._token, channel)
     
     def create_channel(self, name: str, is_private: bool = False) -> Dict:
-        """Create a new channel"""
+        """
+        Create a new channel.
+        
+        Args:
+            name: Channel name (lowercase, no spaces)
+            is_private: Create as private channel (default: False)
+            
+        Returns:
+            API response dict with 'channel' object on success
+        """
         if not self.is_connected:
             raise RuntimeError("Slack not connected")
         return self.client.create_channel(self._token, name, is_private)
+    
+    def get_scopes(self) -> List[str]:
+        """
+        Get available OAuth scopes for the current token.
+        
+        Returns:
+            List of scope strings
+        """
+        if not self.is_connected:
+            return []
+        return self.client.get_scopes(self._token)
 
 
 # Convenience function for quick messaging
@@ -1233,7 +1786,18 @@ def say(message: str, channel: Optional[str] = None,
     """
     Quick function to send a message to the default channel.
     
-    Usage:
+    This is a convenience wrapper around SlackInterface for simple use cases.
+    
+    Args:
+        message: Message text to send
+        channel: Optional channel override
+        username: Optional custom username
+        icon_emoji: Optional emoji icon
+        
+    Returns:
+        Slack API response dict
+        
+    Example:
         from slack_interface import say
         say("Hello from Python!")
         say("Hello!", channel="#general")
