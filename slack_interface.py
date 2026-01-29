@@ -1837,11 +1837,13 @@ class SlackInterface:
             if comment:
                 message_text += f"\n{comment}"
             
+            # Use icon_url for custom avatar (don't use icon_emoji when we have custom URL)
+            # This matches the behavior in cmd_say
             msg_response = self.client.send_message(
                 token, channel_id, message_text,
                 username=agent_config.get("name"),
                 icon_url=agent_config.get("icon_url"),
-                icon_emoji=agent_config.get("icon_emoji")
+                icon_emoji=None  # Don't use emoji when we have custom avatar URL
             )
             
             if msg_response.get("ok"):
