@@ -221,17 +221,6 @@ python src/orchestrator.py --agent Pixel --task "Create homepage wireframe"
 python src/orchestrator.py --list
 ```
 
-## 📝 Customizing Agents
-
-Each agent's behavior is defined in their spec MD file:
-
-- **`agent-docs/NOVA_SPEC.md`** - Edit to change Nova's PM behavior
-- **`agent-docs/PIXEL_SPEC.md`** - Edit to change Pixel's design approach
-- **`agent-docs/BOLT_SPEC.md`** - Edit to change Bolt's coding style
-- **`agent-docs/SCOUT_SPEC.md`** - Edit to change Scout's testing strategy
-
-The orchestrator reads these files and uses them as prompts for Claude Code.
-
 ## 📄 License
 
 MIT License - NinjaTech AI
