@@ -691,6 +691,136 @@ class SlackClient:
             if files and 'file' in files:
                 files['file'][1].close()
     
+    def upload_file_v2(self, token: str, channel: str,
+                       file_path: Optional[str] = None,
+                       content: Optional[str] = None,
+                       filename: Optional[str] = None,
+                       title: Optional[str] = None,
+                       initial_comment: Optional[str] = None,
+                       thread_ts: Optional[str] = None,
+                       snippet_type: Optional[str] = None) -> Dict:
+        """
+        Upload a file to Slack using the newer files.uploadV2 API.
+        
+        This is the recommended method for file uploads as files.upload is deprecated.
+        The V2 API uses a three-step process:
+        1. Get an upload URL from Slack (files.getUploadURLExternal)
+        2. Upload the file content to that URL
+        3. Complete the upload to share it to channels (files.completeUploadExternal)
+        
+        API Methods: files.getUploadURLExternal, files.completeUploadExternal
+        Required Scopes: files:write
+        
+        Args:
+            token: Authentication token with files:write scope
+            channel: Channel ID to share file to (must be ID, not name)
+            file_path: Path to file on disk (optional if content provided)
+            content: File content as string/bytes (optional if file_path provided)
+            filename: Filename to display in Slack (required if content provided)
+            title: Title for the file (optional, defaults to filename)
+            initial_comment: Message to post with the file (optional)
+            thread_ts: Thread timestamp to post file as reply (optional)
+            snippet_type: For text content, the syntax highlighting type (optional)
+            
+        Returns:
+            API response with 'ok', 'files' array on success
+            
+        Example:
+            # Upload from file
+            result = client.upload_file_v2(token, "C123456", file_path="report.pdf")
+            
+            # Upload text content
+            result = client.upload_file_v2(token, "C123456", 
+                                           content="print('hello')", 
+                                           filename="script.py",
+                                           snippet_type="python")
+        """
+        try:
+            # Determine file content and metadata
+            if file_path:
+                path = Path(file_path)
+                if not path.exists():
+                    return {"ok": False, "error": f"File not found: {file_path}"}
+                
+                file_content = path.read_bytes()
+                file_size = len(file_content)
+                actual_filename = filename or path.name
+            elif content:
+                if isinstance(content, str):
+                    file_content = content.encode('utf-8')
+                else:
+                    file_content = content
+                file_size = len(file_content)
+                actual_filename = filename or "untitled"
+            else:
+                return {"ok": False, "error": "Either file_path or content must be provided"}
+            
+            actual_title = title or actual_filename
+            
+            # Step 1: Get upload URL (uses form data, not JSON)
+            get_url_data = {
+                "filename": actual_filename,
+                "length": file_size
+            }
+            if snippet_type:
+                get_url_data["snippet_type"] = snippet_type
+            
+            headers = {"Authorization": f"Bearer {token}"}
+            url_response = requests.post(
+                f"{self.BASE_URL}/files.getUploadURLExternal",
+                headers=headers,
+                data=get_url_data,
+                timeout=30
+            ).json()
+            
+            if not url_response.get("ok"):
+                return url_response
+            
+            upload_url = url_response.get("upload_url")
+            file_id = url_response.get("file_id")
+            
+            if not upload_url or not file_id:
+                return {"ok": False, "error": "Failed to get upload URL from Slack"}
+            
+            # Step 2: Upload file content to the URL
+            upload_response = requests.post(
+                upload_url,
+                data=file_content,
+                headers={"Content-Type": "application/octet-stream"},
+                timeout=120
+            )
+            
+            if upload_response.status_code != 200:
+                return {"ok": False, "error": f"Upload failed with status {upload_response.status_code}"}
+            
+            # Step 3: Complete the upload and share to channel (uses form data)
+            complete_data = {
+                "files": json.dumps([{
+                    "id": file_id,
+                    "title": actual_title
+                }]),
+                "channel_id": channel
+            }
+            
+            if initial_comment:
+                complete_data["initial_comment"] = initial_comment
+            if thread_ts:
+                complete_data["thread_ts"] = thread_ts
+            
+            complete_response = requests.post(
+                f"{self.BASE_URL}/files.completeUploadExternal",
+                headers=headers,
+                data=complete_data,
+                timeout=30
+            ).json()
+            
+            return complete_response
+            
+        except requests.RequestException as e:
+            return {"ok": False, "error": f"Request failed: {str(e)}"}
+        except Exception as e:
+            return {"ok": False, "error": f"Upload failed: {str(e)}"}
+    
     def get_channel_info(self, token: str, channel: str) -> Dict:
         """
         Get information about a channel.
@@ -1632,9 +1762,12 @@ class SlackInterface:
     
     def upload_file(self, file_path: str, channel: Optional[str] = None,
                     title: Optional[str] = None, comment: Optional[str] = None,
-                    thread_ts: Optional[str] = None) -> Dict:
+                    thread_ts: Optional[str] = None, use_v2: bool = True) -> Dict:
         """
         Upload a file to the default channel or specified channel.
+        
+        Uses the newer files.uploadV2 API by default (recommended).
+        The legacy files.upload API is deprecated but available via use_v2=False.
         
         Requires 'files:write' scope on the token.
         
@@ -1644,13 +1777,25 @@ class SlackInterface:
             title: Optional title for the file
             comment: Optional comment to post with the file
             thread_ts: Optional thread timestamp for replies
+            use_v2: Use the newer V2 API (default: True, recommended)
             
         Returns:
-            Slack API response dict with 'ok', 'file' object on success
+            Slack API response dict with 'ok' and file info on success
             
         Raises:
             ValueError: If no channel specified and no default configured
             RuntimeError: If not connected to Slack
+            
+        Example:
+            # Upload an image with a comment
+            slack.upload_file("designs/mockup.png", 
+                            title="New Design", 
+                            comment="Here's the latest mockup!")
+            
+            # Upload to a specific channel in a thread
+            slack.upload_file("report.pdf", 
+                            channel="#reports",
+                            thread_ts="1234567890.123456")
         """
         if not self.is_connected:
             raise RuntimeError("Slack not connected")
@@ -1659,15 +1804,55 @@ class SlackInterface:
         if not target_channel:
             raise ValueError("No channel specified and no default configured")
         
+        # Resolve channel name to ID if needed
+        channel_id = target_channel
+        if target_channel.startswith('#'):
+            channel_id = self._resolve_channel_id(target_channel)
+        
         token = self.tokens.bot_token or self._token
         
-        return self.client.upload_file(
-            token, target_channel,
-            file_path=file_path,
-            title=title,
-            initial_comment=comment,
-            thread_ts=thread_ts
-        )
+        if use_v2:
+            # Use the newer V2 API (recommended)
+            return self.client.upload_file_v2(
+                token, channel_id,
+                file_path=file_path,
+                title=title,
+                initial_comment=comment,
+                thread_ts=thread_ts
+            )
+        else:
+            # Fall back to legacy API (deprecated)
+            return self.client.upload_file(
+                token, channel_id,
+                file_path=file_path,
+                title=title,
+                initial_comment=comment,
+                thread_ts=thread_ts
+            )
+    
+    def _resolve_channel_id(self, channel_name: str) -> str:
+        """
+        Resolve a channel name (e.g., '#general') to its ID.
+        
+        Args:
+            channel_name: Channel name with # prefix
+            
+        Returns:
+            Channel ID string, or original name if not found
+        """
+        if not channel_name.startswith('#'):
+            return channel_name
+        
+        name = channel_name[1:]
+        try:
+            channels = self.list_channels()
+            for ch in channels:
+                if ch.get('name') == name:
+                    return ch.get('id', channel_name)
+        except Exception:
+            pass
+        
+        return channel_name
     
     def set_default_channel(self, channel: str, config_file: str = DEFAULT_CONFIG_PATH) -> None:
         """
