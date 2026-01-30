@@ -97,6 +97,12 @@ def build_prompt(agent: dict, task: str = "") -> str:
     protocol = read_file(REPO_ROOT / "agent-docs" / "AGENT_PROTOCOL.md")
     slack_docs = read_file(REPO_ROOT / "agent-docs" / "SLACK_INTERFACE.md")
     
+    # Get default channel from config
+    config = load_config()
+    channel = config.get("default_channel_name", config.get("default_channel", "#logo-creator"))
+    
+    default_task = f"Check Slack {channel}, sync with team, do your work, update your memory file."
+    
     return f"""# You are {agent['name']} {agent['emoji']}
 
 ## Your Identity
@@ -136,12 +142,6 @@ def build_prompt(agent: dict, task: str = "") -> str:
 
 ---
 
-## Current Task
-
-{task if task else "Check Slack #logo-creator, sync with team, do your work, update your memory file."}
-
----
-
 ## Headless Mode
 
 You are running in **headless CLI mode** - there is no human at the terminal.
@@ -156,6 +156,12 @@ You are running in **headless CLI mode** - there is no human at the terminal.
 3. Post updates to Slack
 4. Commit changes to git
 5. Update your memory file (`memory/{agent['name'].lower()}_memory.md`)
+
+---
+
+## Current Task
+
+{task if task else default_task}
 """
 
 
