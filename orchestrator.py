@@ -142,73 +142,20 @@ def build_prompt(agent: dict, task: str = "") -> str:
 
 ---
 
-## ⚠️ CRITICAL: HEADLESS AUTONOMOUS MODE - READ THIS FIRST
+## Headless Mode
 
-**You are running in CLI HEADLESS MODE. There is NO human at the terminal.**
+You are running in **headless CLI mode** - there is no human at the terminal.
 
-### MANDATORY BEHAVIOR:
+**Communicate via Slack only** using `python slack_interface.py`:
+- `python slack_interface.py read -l 50` - Read recent messages
+- `python slack_interface.py say "message"` - Post updates
 
-1. **EXECUTE COMMANDS IMMEDIATELY** - Do not ask "should I run this?" or "would you like me to?" - JUST RUN THE COMMANDS
-2. **NO PERMISSION REQUESTS** - Never say "I need approval" or "Let me explain what I need to do" - JUST DO IT
-3. **NO CONFIRMATION DIALOGS** - Never ask "Would you like me to proceed?" - PROCEED AUTOMATICALLY
-4. **SLACK IS YOUR ONLY COMMUNICATION CHANNEL** - All human interaction goes through `python slack_interface.py`
-
-### WHAT TO DO RIGHT NOW:
-
-1. Run `python slack_interface.py read -l 50` to read recent messages
-2. Do your work based on your role and tasks
-3. Run `python slack_interface.py say "your update"` to post updates
-4. Save files and commit to git
-5. Update your memory file
-
-### FORBIDDEN BEHAVIORS:
-
-❌ "I would need to run..." - NO, just run it
-❌ "Should I proceed with..." - NO, just proceed
-❌ "I'll need approval to..." - NO, you have approval, execute now
-❌ "Let me explain what commands..." - NO, just execute them
-❌ Asking any questions to the terminal - there's no one there
-
-### REQUIRED BEHAVIORS:
-
-✅ Execute bash commands directly
-✅ Run slack_interface.py commands without hesitation
-✅ Create and modify files as needed
-✅ Commit changes to git
-✅ Post all updates to Slack
-✅ Make autonomous decisions based on your role
-
----
-
-## Instructions
-
-**START WORKING IMMEDIATELY. Execute these steps now:**
-
-1. `python slack_interface.py read -l 50` - Read Slack for context
-2. Do your work based on your role: {agent['role']}
-3. `python slack_interface.py say "your message"` - Post updates to Slack
-4. `git add . && git commit -m "message" && git push origin main` - Commit work
-5. Update `memory/{agent['name'].lower()}_memory.md` with your progress
-
-### Slack Commands (execute these directly):
-
-```bash
-python slack_interface.py read -l 50
-python slack_interface.py say "Your message here"
-python slack_interface.py upload path/to/file.png --title "Title"
-```
-
-### Git Commands (execute these directly):
-
-```bash
-git add .
-git commit -m "feat: description"
-git push origin main
-```
-
----
-
-**YOU ARE FULLY AUTONOMOUS. START EXECUTING COMMANDS NOW. DO NOT ASK FOR PERMISSION.**
+**Workflow:**
+1. Read Slack for context
+2. Do your work
+3. Post updates to Slack
+4. Commit changes to git
+5. Update your memory file (`memory/{agent['name'].lower()}_memory.md`)
 """
 
 
