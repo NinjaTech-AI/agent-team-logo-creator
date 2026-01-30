@@ -142,37 +142,78 @@ def build_prompt(agent: dict, task: str = "") -> str:
 
 ---
 
+## ⚠️ CRITICAL: HEADLESS AUTONOMOUS MODE - READ THIS FIRST
+
+**You are running in CLI HEADLESS MODE. There is NO human at the terminal.**
+
+### MANDATORY BEHAVIOR:
+
+1. **EXECUTE COMMANDS IMMEDIATELY** - Do not ask "should I run this?" or "would you like me to?" - JUST RUN THE COMMANDS
+2. **NO PERMISSION REQUESTS** - Never say "I need approval" or "Let me explain what I need to do" - JUST DO IT
+3. **NO CONFIRMATION DIALOGS** - Never ask "Would you like me to proceed?" - PROCEED AUTOMATICALLY
+4. **SLACK IS YOUR ONLY COMMUNICATION CHANNEL** - All human interaction goes through `python slack_interface.py`
+
+### WHAT TO DO RIGHT NOW:
+
+1. Run `python slack_interface.py read -l 50` to read recent messages
+2. Do your work based on your role and tasks
+3. Run `python slack_interface.py say "your update"` to post updates
+4. Save files and commit to git
+5. Update your memory file
+
+### FORBIDDEN BEHAVIORS:
+
+❌ "I would need to run..." - NO, just run it
+❌ "Should I proceed with..." - NO, just proceed
+❌ "I'll need approval to..." - NO, you have approval, execute now
+❌ "Let me explain what commands..." - NO, just execute them
+❌ Asking any questions to the terminal - there's no one there
+
+### REQUIRED BEHAVIORS:
+
+✅ Execute bash commands directly
+✅ Run slack_interface.py commands without hesitation
+✅ Create and modify files as needed
+✅ Commit changes to git
+✅ Post all updates to Slack
+✅ Make autonomous decisions based on your role
+
+---
+
 ## Instructions
 
-1. Use **slack_interface.py** to read #logo-creator channel and post updates
-2. Do your work based on your role and current tasks
-3. Commit any files to the repo, share GitHub links in Slack
-4. Update your memory file: `memory/{agent['name'].lower()}_memory.md`
-5. Stay in character as {agent['name']}, the {agent['role']}
+**START WORKING IMMEDIATELY. Execute these steps now:**
 
-### Slack Interface Quick Reference
+1. `python slack_interface.py read -l 50` - Read Slack for context
+2. Do your work based on your role: {agent['role']}
+3. `python slack_interface.py say "your message"` - Post updates to Slack
+4. `git add . && git commit -m "message" && git push origin main` - Commit work
+5. Update `memory/{agent['name'].lower()}_memory.md` with your progress
+
+### Slack Commands (execute these directly):
 
 ```bash
-# Read messages from the channel
-python slack_interface.py read              # Last 50 messages
-python slack_interface.py read -l 100       # Last 100 messages
-
-# Send messages (uses configured agent from ~/.agent_settings.json)
+python slack_interface.py read -l 50
 python slack_interface.py say "Your message here"
-
-# Upload files
-python slack_interface.py upload path/to/file.png --title "File Title"
-
-# Check configuration
-python slack_interface.py config
+python slack_interface.py upload path/to/file.png --title "Title"
 ```
 
-You are running in your own sandbox VM. All MCPs are pre-configured.
+### Git Commands (execute these directly):
+
+```bash
+git add .
+git commit -m "feat: description"
+git push origin main
+```
+
+---
+
+**YOU ARE FULLY AUTONOMOUS. START EXECUTING COMMANDS NOW. DO NOT ASK FOR PERMISSION.**
 """
 
 
 def run_agent(agent: dict, task: str = "") -> None:
-    """Run Claude Code for a single agent."""
+    """Run Claude Code for a single agent in headless autonomous mode."""
     
     print(f"\n{'='*60}")
     print(f"{agent['emoji']} Starting {agent['name']} ({agent['role']})")
@@ -180,7 +221,8 @@ def run_agent(agent: dict, task: str = "") -> None:
     
     prompt = build_prompt(agent, task)
     
-    # Run Claude Code CLI (mandatory)
+    # Run Claude Code CLI
+    # -p: Print mode (non-interactive)
     try:
         subprocess.run(
             ["claude", "-p", prompt],
