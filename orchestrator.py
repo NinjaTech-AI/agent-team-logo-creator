@@ -33,7 +33,7 @@ AGENTS = {
     "scout": {"name": "Scout", "role": "QA Engineer",          "emoji": "🔍", "spec": "SCOUT_SPEC.md"},
 }
 
-REPO_ROOT = Path(__file__).parent.parent
+REPO_ROOT = Path(__file__).parent
 CONFIG_PATH = Path.home() / ".agent_settings.json"
 
 
