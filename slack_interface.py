@@ -630,6 +630,37 @@ class SlackClient:
         
         return result.get("messages", [])
     
+    def get_thread_replies(self, token: str, channel: str, thread_ts: str, limit: int = 50) -> List[Dict]:
+        """
+        Get replies to a thread.
+        
+        API Method: conversations.replies
+        Required Scopes: channels:history (public), groups:history (private)
+        
+        Args:
+            token: Authentication token
+            channel: Channel ID (e.g., "C0AAAAMBR1R")
+            thread_ts: Timestamp of the parent message
+            limit: Number of replies to retrieve (max 1000)
+            
+        Returns:
+            List of message dicts including parent and all replies.
+            First message is the parent, rest are replies in chronological order.
+        """
+        params = {
+            "channel": channel,
+            "ts": thread_ts,
+            "limit": limit
+        }
+        
+        result = self._api_call("conversations.replies", token, params)
+        
+        if not result.get("ok"):
+            print(f"❌ Error: {result.get('error', 'Unknown error')}", file=sys.stderr)
+            return []
+        
+        return result.get("messages", [])
+    
     def send_message(self, token: str, channel: str, text: str, 
                      thread_ts: Optional[str] = None,
                      username: Optional[str] = None,
@@ -1442,6 +1473,63 @@ def cmd_history(client: SlackClient, tokens: SlackTokens, args) -> None:
         print(f"[{time_str}] {user}: {text}")
 
 
+def cmd_replies(client: SlackClient, tokens: SlackTokens, args) -> None:
+    """Get thread replies."""
+    token = tokens.access_token or tokens.bot_token
+    if not token:
+        print("❌ No valid token available", file=sys.stderr)
+        return
+    
+    thread_ts = args.thread_ts
+    limit = args.limit if hasattr(args, 'limit') else 50
+    
+    # Get channel from args or config
+    channel = args.channel if hasattr(args, 'channel') and args.channel else None
+    if not channel:
+        config = load_config(args.config_file if hasattr(args, 'config_file') else None)
+        channel = config.get('default_channel_id') or config.get('default_channel')
+    
+    if not channel:
+        print("❌ No channel specified and no default configured", file=sys.stderr)
+        print("💡 Set default: python slack_interface.py config --set-channel &quot;#channel&quot;", file=sys.stderr)
+        return
+    
+    print(f"\n🧵 Fetching replies for thread {thread_ts}...")
+    messages = client.get_thread_replies(token, channel, thread_ts, limit)
+    
+    if not messages:
+        print("❌ No replies found or error occurred")
+        return
+    
+    print(f"\n💬 Thread with {len(messages)} messages:\n")
+    print("=" * 80)
+    
+    for i, msg in enumerate(messages):
+        user = msg.get('user', 'unknown')
+        text = msg.get('text', '')
+        ts = msg.get('ts', '')
+        
+        # Check for bot messages
+        if msg.get('bot_id') and msg.get('username'):
+            user = msg.get('username')
+        
+        try:
+            dt = datetime.fromtimestamp(float(ts))
+            time_str = dt.strftime('%Y-%m-%d %H:%M:%S')
+        except:
+            time_str = ts
+        
+        # Mark parent vs reply
+        prefix = "📌 PARENT" if i == 0 else f"↳ Reply {i}"
+        
+        print(f"┌─ {user} [{time_str}] {prefix}")
+        for line in text.split('\n'):
+            print(f"│  {line}")
+        print("└" + "─" * 79)
+    
+    print(f"\n📊 Total: {len(messages)} messages in thread")
+
+
 def cmd_send(client: SlackClient, tokens: SlackTokens, args) -> None:
     """Send a message without agent identity."""
     token = tokens.bot_token or tokens.access_token
@@ -1610,6 +1698,13 @@ For more info: https://github.com/NinjaTech-AI/agent-team-logo-creator
     history_parser.add_argument('-l', '--limit', type=int, default=20,
                                 help='Number of messages (default: 20)')
     
+    # Replies command
+    replies_parser = subparsers.add_parser('replies', help='Get thread replies')
+    replies_parser.add_argument('thread_ts', help='Thread timestamp (e.g., 1234567890.123456)')
+    replies_parser.add_argument('-c', '--channel', help='Override default channel')
+    replies_parser.add_argument('-l', '--limit', type=int, default=50,
+                                help='Number of replies (default: 50)')
+    
     # Send command
     send_parser = subparsers.add_parser('send', help='Send a message (no agent identity)')
     send_parser.add_argument('channel', help='Channel ID or name')
@@ -1681,6 +1776,7 @@ For more info: https://github.com/NinjaTech-AI/agent-team-logo-creator
         'channels': cmd_channels,
         'users': cmd_users,
         'history': cmd_history,
+        'replies': cmd_replies,
         'send': cmd_send,
         'join': cmd_join,
         'create': cmd_create,
@@ -2027,6 +2123,27 @@ class SlackInterface:
         # Prefer bot token for reading (usually has channels:history scope)
         token = self.tokens.bot_token or self._token
         return self.client.get_channel_history(token, target_channel, limit)
+    
+    def get_replies(self, thread_ts: str, channel: Optional[str] = None, limit: int = 50) -> List[Dict]:
+        """
+        Get replies to a thread.
+        
+        Args:
+            thread_ts: Timestamp of the parent message
+            channel: Optional channel override (uses default if not specified)
+            limit: Number of replies to retrieve (default: 50)
+            
+        Returns:
+            List of message dicts (parent first, then replies in chronological order)
+        """
+        if not self.is_connected:
+            raise RuntimeError("Slack not connected")
+        target_channel = channel or self.default_channel
+        if not target_channel:
+            raise ValueError("No channel specified and no default configured")
+        # Prefer bot token for reading (usually has channels:history scope)
+        token = self.tokens.bot_token or self._token
+        return self.client.get_thread_replies(token, target_channel, thread_ts, limit)
     
     def join_channel(self, channel: str) -> Dict:
         """

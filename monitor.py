@@ -5,6 +5,11 @@ Agent Monitor - Watches Slack for mentions and triggers agent responses.
 This script runs independently and only invokes Claude CLI when the agent
 is mentioned in Slack. It polls every 10 seconds and tracks seen messages.
 
+Features:
+- Monitors main channel for mentions
+- Monitors thread replies to agent's messages
+- Strips ANSI escape codes from responses
+
 Usage:
     python monitor.py              # Run with configured agent
     python monitor.py --agent nova # Run as specific agent
@@ -24,6 +29,7 @@ POLL_INTERVAL = 45  # base seconds
 POLL_JITTER = 5  # random jitter seconds
 MAX_RUNTIME = 60 * 60  # 60 minutes in seconds
 SEEN_MESSAGES_FILE = REPO_ROOT / ".seen_messages.json"
+AGENT_MESSAGES_FILE = REPO_ROOT / ".agent_messages.json"  # Track agent's own messages for thread monitoring
 
 # Agent configuration
 AGENTS = {
@@ -63,6 +69,77 @@ def save_seen_messages(seen: set):
         SEEN_MESSAGES_FILE.write_text(json.dumps({"seen": recent}))
     except Exception as e:
         print(f"⚠️ Warning: Could not save seen messages: {e}", file=sys.stderr)
+
+
+def load_agent_messages() -> dict:
+    """Load agent's own message timestamps for thread monitoring."""
+    try:
+        if AGENT_MESSAGES_FILE.exists():
+            return json.loads(AGENT_MESSAGES_FILE.read_text())
+    except Exception:
+        pass
+    return {"messages": [], "seen_replies": []}
+
+
+def save_agent_messages(data: dict):
+    """Save agent's message timestamps."""
+    try:
+        # Keep only last 20 messages to monitor
+        data["messages"] = data.get("messages", [])[-20:]
+        data["seen_replies"] = data.get("seen_replies", [])[-100:]
+        AGENT_MESSAGES_FILE.write_text(json.dumps(data))
+    except Exception as e:
+        print(f"⚠️ Warning: Could not save agent messages: {e}", file=sys.stderr)
+
+
+def get_thread_replies(thread_ts: str) -> list:
+    """Get replies to a specific thread using slack_interface.py"""
+    try:
+        result = subprocess.run(
+            ["python", "slack_interface.py", "replies", thread_ts, "-l", "20"],
+            cwd=str(REPO_ROOT),
+            capture_output=True,
+            text=True,
+            timeout=30
+        )
+        
+        if result.returncode != 0:
+            return []
+        
+        # Parse the output to extract messages
+        messages = []
+        output = result.stdout
+        lines = output.split('\n')
+        current_msg = None
+        
+        for line in lines:
+            # Check for message header: ┌─ Username [YYYY-MM-DD HH:MM:SS]
+            if line.startswith('┌─ '):
+                if current_msg:
+                    messages.append(current_msg)
+                
+                match = re.match(r'┌─ (.+?) \[(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})\]', line)
+                if match:
+                    current_msg = {
+                        "user": match.group(1),
+                        "timestamp": match.group(2),
+                        "text": ""
+                    }
+                else:
+                    current_msg = None
+            elif line.startswith('│  ') and current_msg:
+                current_msg["text"] += line[3:] + "\n"
+            elif line.startswith('└') and current_msg:
+                current_msg["text"] = current_msg["text"].strip()
+                messages.append(current_msg)
+                current_msg = None
+        
+        return messages
+        
+    except subprocess.TimeoutExpired:
+        return []
+    except Exception:
+        return []
 
 
 def get_last_messages(limit: int = 10) -> list:
@@ -141,12 +218,27 @@ def check_for_mention(message: dict, agent: dict) -> bool:
     return False
 
 
-def run_agent_response(agent: dict, message: dict):
-    """Generate a response using Claude and post it directly to Slack."""
+def run_agent_response(agent: dict, message: dict, thread_ts: str = None, is_thread_reply: bool = False) -> str:
+    """Generate a response using Claude and post it directly to Slack.
+    
+    Args:
+        agent: Agent configuration dict
+        message: The message to respond to
+        thread_ts: Optional thread timestamp to reply in
+        is_thread_reply: Whether this is a reply to a thread on agent's message
+        
+    Returns:
+        The timestamp of the posted message, or None if failed
+    """
     
     agent_name = agent["name"]
     agent_role = agent["role"]
     agent_emoji = agent["emoji"]
+    
+    # Build context for thread replies
+    context = ""
+    if is_thread_reply:
+        context = "\nThis is a reply in a thread on one of your previous messages. Respond helpfully to continue the conversation."
     
     # Build a focused task prompt - ask Claude to generate ONLY the response text
     task = f"""Someone mentioned you in Slack! Here's the message:
@@ -154,6 +246,7 @@ def run_agent_response(agent: dict, message: dict):
 From: {message.get('user', 'Unknown')}
 Time: {message.get('timestamp', 'Unknown')}
 Message: {message.get('text', '')}
+{context}
 
 Generate a helpful, friendly response as {agent_name} the {agent_role}.
 Keep it concise (1-3 sentences).
@@ -182,7 +275,8 @@ Sign off with your emoji {agent_emoji}"""
 
 OUTPUT ONLY THE RESPONSE TEXT - NO COMMANDS, NO EXPLANATIONS:"""
 
-    print(f"\n{agent_emoji} Generating response to {message.get('user', 'Unknown')}...", flush=True)
+    reply_type = "thread reply" if is_thread_reply else "mention"
+    print(f"\n{agent_emoji} Generating response to {reply_type} from {message.get('user', 'Unknown')}...", flush=True)
     
     try:
         # Get response from Claude
@@ -221,9 +315,14 @@ OUTPUT ONLY THE RESPONSE TEXT - NO COMMANDS, NO EXPLANATIONS:"""
         
         print(f"📝 Response: {response_text[:100]}...", flush=True)
         
+        # Build slack command - add thread flag if replying to a thread
+        slack_cmd = ["python", "slack_interface.py", "say", response_text]
+        if thread_ts:
+            slack_cmd.extend(["-t", thread_ts])
+        
         # Post directly to Slack using slack_interface.py
         slack_result = subprocess.run(
-            ["python", "slack_interface.py", "say", response_text],
+            slack_cmd,
             cwd=str(REPO_ROOT),
             capture_output=True,
             text=True,
@@ -232,6 +331,10 @@ OUTPUT ONLY THE RESPONSE TEXT - NO COMMANDS, NO EXPLANATIONS:"""
         
         if slack_result.returncode == 0:
             print(f"✅ Response posted to Slack!", flush=True)
+            # Try to extract timestamp from output
+            ts_match = re.search(r'Timestamp: (\d+\.\d+)', slack_result.stdout)
+            if ts_match:
+                return ts_match.group(1)
         else:
             print(f"⚠️ Slack error: {slack_result.stderr}", flush=True)
             
@@ -239,10 +342,13 @@ OUTPUT ONLY THE RESPONSE TEXT - NO COMMANDS, NO EXPLANATIONS:"""
         print("⚠️ Response timed out", flush=True)
     except Exception as e:
         print(f"⚠️ Error: {e}", flush=True)
+    
+    return None
 
 
 def main():
     import argparse
+    import random
     
     parser = argparse.ArgumentParser(description='Agent Monitor - Watch Slack for mentions')
     parser.add_argument('--agent', '-a', help='Agent to run as (default: from config)')
@@ -269,10 +375,12 @@ def main():
 ║  Polling: Every {args.interval}s (+{POLL_JITTER}s jitter)
 ║  Max runtime: {MAX_RUNTIME // 60} minutes
 ║  Mentions: {', '.join(agent['mentions'])}
+║  Thread replies: ✅ Enabled
 ╚══════════════════════════════════════════════════════════════╝
 """, flush=True)
     
     seen_messages = load_seen_messages()
+    agent_data = load_agent_messages()
     start_time = time.time()
     print(f"📡 Starting monitor loop (max {MAX_RUNTIME // 60} minutes)...", flush=True)
     
@@ -283,6 +391,7 @@ def main():
             if elapsed >= MAX_RUNTIME:
                 print(f"\n⏰ Max runtime ({MAX_RUNTIME // 60} minutes) reached. Stopping monitor.", flush=True)
                 break
+            
             # Get recent messages
             messages = get_last_messages(10)
             print(f"📨 Got {len(messages)} messages", flush=True)
@@ -304,20 +413,61 @@ def main():
                     print(f"   From: {msg.get('user', 'Unknown')}")
                     print(f"   Text: {msg.get('text', '')[:100]}...")
                     
-                    # Run agent response
-                    run_agent_response(agent, msg)
+                    # Run agent response and track the message
+                    response_ts = run_agent_response(agent, msg)
+                    if response_ts:
+                        agent_data["messages"].append({
+                            "ts": response_ts,
+                            "time": msg_id
+                        })
             
-            # Save seen messages
+            # Check for thread replies to agent's messages
+            if agent_data.get("messages"):
+                print(f"🧵 Checking {len(agent_data['messages'])} threads for replies...", flush=True)
+                
+                for agent_msg in agent_data["messages"][-10:]:  # Check last 10 messages
+                    thread_ts = agent_msg.get("ts")
+                    if not thread_ts:
+                        continue
+                    
+                    replies = get_thread_replies(thread_ts)
+                    
+                    # Skip first message (it's the parent) and check replies
+                    for reply in replies[1:]:
+                        reply_id = f"{thread_ts}:{reply.get('timestamp', '')}"
+                        
+                        # Skip if already seen
+                        if reply_id in agent_data.get("seen_replies", []):
+                            continue
+                        
+                        # Skip if it's from the agent itself
+                        if agent["name"].lower() in reply.get("user", "").lower():
+                            agent_data.setdefault("seen_replies", []).append(reply_id)
+                            continue
+                        
+                        # New reply found!
+                        print(f"\n🧵 New thread reply detected!")
+                        print(f"   From: {reply.get('user', 'Unknown')}")
+                        print(f"   Text: {reply.get('text', '')[:100]}...")
+                        
+                        # Mark as seen
+                        agent_data.setdefault("seen_replies", []).append(reply_id)
+                        
+                        # Respond in the thread
+                        run_agent_response(agent, reply, thread_ts=thread_ts, is_thread_reply=True)
+            
+            # Save state
             save_seen_messages(seen_messages)
+            save_agent_messages(agent_data)
             
             # Wait for next poll (interval + random jitter)
-            import random
             jitter = random.uniform(0, POLL_JITTER)
             time.sleep(args.interval + jitter)
             
     except KeyboardInterrupt:
         print("\n\n👋 Monitor stopped")
         save_seen_messages(seen_messages)
+        save_agent_messages(agent_data)
 
 
 if __name__ == "__main__":
