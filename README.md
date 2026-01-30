@@ -25,7 +25,7 @@ A multi-agent AI system for creating team logos, powered by collaborative AI age
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
 │                       ORCHESTRATOR                               │
-│                    (src/orchestrator.py)                         │
+│                    (orchestrator.py)                         │
 │                                                                  │
 │   Runs Claude Code 4 times per sync cycle, once per agent       │
 │   Each agent's prompt is built from their spec MD file          │
@@ -165,8 +165,7 @@ agent-team-logo-creator/
 │   ├── bolt.png
 │   └── scout.png
 │
-└── src/                     # Orchestrator code
-    └── orchestrator.py      # Main orchestrator
+├── orchestrator.py          # Main orchestrator
 ```
 
 ## 🚀 Quick Start
@@ -211,14 +210,14 @@ python slack_interface.py read
 
 ```bash
 # Run all agents (Nova → Pixel → Bolt → Scout)
-python src/orchestrator.py
+python orchestrator.py
 
 # Run a specific agent
-python src/orchestrator.py --agent Nova
-python src/orchestrator.py --agent Pixel --task "Create homepage wireframe"
+python orchestrator.py --agent Nova
+python orchestrator.py --agent Pixel --task "Create homepage wireframe"
 
 # List available agents
-python src/orchestrator.py --list
+python orchestrator.py --list
 ```
 
 ## 📄 License

@@ -6,10 +6,10 @@ Agent identity is read from ~/.agent_settings.json config file.
 Agent behavior is defined by their markdown spec files in agent-docs/.
 
 Usage:
-    python src/orchestrator.py                    # Run configured agent
-    python src/orchestrator.py --task "Interview Arash for PRD"
-    python src/orchestrator.py --list             # List all agents
-    python src/orchestrator.py --test             # Run capability tests
+    python orchestrator.py                    # Run configured agent
+    python orchestrator.py --task "Interview Arash for PRD"
+    python orchestrator.py --list             # List all agents
+    python orchestrator.py --test             # Run capability tests
 """
 
 import subprocess
@@ -355,10 +355,10 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  python src/orchestrator.py                    Run configured agent
-  python src/orchestrator.py --task "Do X"      Run with specific task
-  python src/orchestrator.py --list             List all agents
-  python src/orchestrator.py --test             Run capability tests
+  python orchestrator.py                    Run configured agent
+  python orchestrator.py --task "Do X"      Run with specific task
+  python orchestrator.py --list             List all agents
+  python orchestrator.py --test             Run capability tests
 
 Configuration:
   Agent identity is read from ~/.agent_settings.json
