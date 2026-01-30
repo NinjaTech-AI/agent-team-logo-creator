@@ -20,7 +20,8 @@ from pathlib import Path
 # Configuration
 REPO_ROOT = Path(__file__).parent
 CONFIG_PATH = Path.home() / ".agent_settings.json"
-POLL_INTERVAL = 10  # seconds
+POLL_INTERVAL = 45  # base seconds
+POLL_JITTER = 5  # random jitter seconds
 SEEN_MESSAGES_FILE = REPO_ROOT / ".seen_messages.json"
 
 # Agent configuration
@@ -253,7 +254,7 @@ def main():
 ║  {agent['emoji']} {agent['name']} Monitor - Watching for Slack mentions
 ╠══════════════════════════════════════════════════════════════╣
 ║  Agent: {agent['name']} ({agent['role']})
-║  Polling: Every {args.interval} seconds
+║  Polling: Every {args.interval}s (+{POLL_JITTER}s jitter)
 ║  Mentions: {', '.join(agent['mentions'])}
 ╚══════════════════════════════════════════════════════════════╝
 """, flush=True)
@@ -290,8 +291,10 @@ def main():
             # Save seen messages
             save_seen_messages(seen_messages)
             
-            # Wait for next poll
-            time.sleep(args.interval)
+            # Wait for next poll (interval + random jitter)
+            import random
+            jitter = random.uniform(0, POLL_JITTER)
+            time.sleep(args.interval + jitter)
             
     except KeyboardInterrupt:
         print("\n\n👋 Monitor stopped")
