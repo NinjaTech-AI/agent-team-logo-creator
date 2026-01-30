@@ -60,4 +60,4 @@ logs/
 # Token files (should never be committed)
 *token*
 *secret*
-*.key
+*.key.seen_messages.json
