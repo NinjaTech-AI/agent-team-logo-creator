@@ -647,13 +647,21 @@ class SlackClient:
             List of message dicts including parent and all replies.
             First message is the parent, rest are replies in chronological order.
         """
+        # Use GET request with query params (not POST with JSON body)
+        url = f"{self.BASE_URL}/conversations.replies"
+        headers = self._get_headers(token)
         params = {
             "channel": channel,
             "ts": thread_ts,
             "limit": limit
         }
         
-        result = self._api_call("conversations.replies", token, params)
+        try:
+            response = requests.get(url, headers=headers, params=params, timeout=30)
+            result = response.json()
+        except requests.RequestException as e:
+            print(f"❌ Error: {e}", file=sys.stderr)
+            return []
         
         if not result.get("ok"):
             print(f"❌ Error: {result.get('error', 'Unknown error')}", file=sys.stderr)
@@ -1475,7 +1483,8 @@ def cmd_history(client: SlackClient, tokens: SlackTokens, args) -> None:
 
 def cmd_replies(client: SlackClient, tokens: SlackTokens, args) -> None:
     """Get thread replies."""
-    token = tokens.access_token or tokens.bot_token
+    # Prefer bot token as it has channels:history scope
+    token = tokens.bot_token or tokens.access_token
     if not token:
         print("❌ No valid token available", file=sys.stderr)
         return
@@ -1486,8 +1495,9 @@ def cmd_replies(client: SlackClient, tokens: SlackTokens, args) -> None:
     # Get channel from args or config
     channel = args.channel if hasattr(args, 'channel') and args.channel else None
     if not channel:
-        config = load_config(args.config_file if hasattr(args, 'config_file') else None)
-        channel = config.get('default_channel_id') or config.get('default_channel')
+        config_path = args.config_file if hasattr(args, 'config_file') and args.config_file else DEFAULT_CONFIG_PATH
+        config = SlackConfig.load(config_path)
+        channel = config.default_channel_id or config.default_channel
     
     if not channel:
         print("❌ No channel specified and no default configured", file=sys.stderr)
