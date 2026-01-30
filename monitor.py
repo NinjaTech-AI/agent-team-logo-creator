@@ -461,11 +461,21 @@ def main():
             raw_messages = get_last_messages_raw(20)
             threads_to_check = []
             
+            # Get list of agent's own thread timestamps
+            agent_thread_timestamps = set(m.get("ts") for m in agent_data.get("messages", []) if m.get("ts"))
+            
             for raw_msg in raw_messages:
                 reply_count = raw_msg.get("reply_count", 0)
                 if reply_count > 0:
                     thread_ts = raw_msg.get("ts")
                     latest_reply = raw_msg.get("latest_reply", "")
+                    
+                    # Check if this is agent's own thread (agent started it)
+                    msg_user = raw_msg.get("user", "") or raw_msg.get("username", "")
+                    is_agent_thread = (
+                        agent["name"].lower() in msg_user.lower() or
+                        thread_ts in agent_thread_timestamps
+                    )
                     
                     # Check if we've seen this latest reply
                     reply_key = f"{thread_ts}:{latest_reply}"
@@ -473,7 +483,8 @@ def main():
                         threads_to_check.append({
                             "thread_ts": thread_ts,
                             "reply_count": reply_count,
-                            "latest_reply": latest_reply
+                            "latest_reply": latest_reply,
+                            "is_agent_thread": is_agent_thread
                         })
             
             if threads_to_check:
@@ -481,6 +492,7 @@ def main():
                 
                 for thread_info in threads_to_check[:3]:  # Limit to 3 threads per cycle to avoid rate limits
                     thread_ts = thread_info["thread_ts"]
+                    is_agent_thread = thread_info["is_agent_thread"]
                     replies = get_thread_replies(thread_ts)
                     
                     # Skip first message (it's the parent) and check replies
@@ -500,9 +512,13 @@ def main():
                         reply_text = reply.get("text", "").lower()
                         is_mention = any(m.lower() in reply_text for m in agent["mentions"])
                         
-                        if is_mention:
-                            # New reply mentioning agent found!
-                            print(f"\n🧵 New thread reply detected!")
+                        # Respond if: it's agent's own thread OR reply mentions the agent
+                        should_respond = is_agent_thread or is_mention
+                        
+                        if should_respond:
+                            # New reply to respond to!
+                            reason = "agent's thread" if is_agent_thread else "mention"
+                            print(f"\n🧵 New thread reply detected ({reason})!")
                             print(f"   From: {reply.get('user', 'Unknown')}")
                             print(f"   Text: {reply.get('text', '')[:100]}...")
                             
@@ -512,7 +528,7 @@ def main():
                             # Respond in the thread
                             run_agent_response(agent, reply, thread_ts=thread_ts, is_thread_reply=True)
                         else:
-                            # Mark as seen even if not a mention (to avoid re-checking)
+                            # Mark as seen even if not responding (to avoid re-checking)
                             agent_data.setdefault("seen_replies", []).append(reply_id)
                     
                     # Mark the latest reply as seen for this thread
