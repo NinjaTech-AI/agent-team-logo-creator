@@ -142,6 +142,41 @@ def get_thread_replies(thread_ts: str) -> list:
         return []
 
 
+def get_last_messages_raw(limit: int = 10) -> list:
+    """Get recent messages from Slack using Python API directly (includes reply_count)."""
+    try:
+        # Use Python to get raw message data including reply_count
+        code = f'''
+import json
+import sys
+sys.path.insert(0, "{REPO_ROOT}")
+from slack_interface import SlackInterface
+try:
+    slack = SlackInterface()
+    messages = slack.get_history(limit={limit})
+    # Output as JSON for parsing
+    print(json.dumps(messages))
+except Exception as e:
+    print(json.dumps([]))
+'''
+        result = subprocess.run(
+            ["python", "-c", code],
+            cwd=str(REPO_ROOT),
+            capture_output=True,
+            text=True,
+            timeout=30
+        )
+        
+        if result.returncode == 0 and result.stdout.strip():
+            try:
+                return json.loads(result.stdout.strip())
+            except json.JSONDecodeError:
+                pass
+        return []
+    except Exception:
+        return []
+
+
 def get_last_messages(limit: int = 10) -> list:
     """Get recent messages from Slack using slack_interface.py"""
     try:
@@ -421,15 +456,31 @@ def main():
                             "time": msg_id
                         })
             
-            # Check for thread replies to agent's messages
-            if agent_data.get("messages"):
-                print(f"🧵 Checking {len(agent_data['messages'])} threads for replies...", flush=True)
-                
-                for agent_msg in agent_data["messages"][-10:]:  # Check last 10 messages
-                    thread_ts = agent_msg.get("ts")
-                    if not thread_ts:
-                        continue
+            # Check for thread replies using raw message data (more efficient)
+            # Only check threads that have replies (reply_count > 0)
+            raw_messages = get_last_messages_raw(20)
+            threads_to_check = []
+            
+            for raw_msg in raw_messages:
+                reply_count = raw_msg.get("reply_count", 0)
+                if reply_count > 0:
+                    thread_ts = raw_msg.get("ts")
+                    latest_reply = raw_msg.get("latest_reply", "")
                     
+                    # Check if we've seen this latest reply
+                    reply_key = f"{thread_ts}:{latest_reply}"
+                    if reply_key not in agent_data.get("seen_replies", []):
+                        threads_to_check.append({
+                            "thread_ts": thread_ts,
+                            "reply_count": reply_count,
+                            "latest_reply": latest_reply
+                        })
+            
+            if threads_to_check:
+                print(f"🧵 Found {len(threads_to_check)} threads with new replies to check...", flush=True)
+                
+                for thread_info in threads_to_check[:3]:  # Limit to 3 threads per cycle to avoid rate limits
+                    thread_ts = thread_info["thread_ts"]
                     replies = get_thread_replies(thread_ts)
                     
                     # Skip first message (it's the parent) and check replies
@@ -445,16 +496,29 @@ def main():
                             agent_data.setdefault("seen_replies", []).append(reply_id)
                             continue
                         
-                        # New reply found!
-                        print(f"\n🧵 New thread reply detected!")
-                        print(f"   From: {reply.get('user', 'Unknown')}")
-                        print(f"   Text: {reply.get('text', '')[:100]}...")
+                        # Check if this reply mentions the agent
+                        reply_text = reply.get("text", "").lower()
+                        is_mention = any(m.lower() in reply_text for m in agent["mentions"])
                         
-                        # Mark as seen
-                        agent_data.setdefault("seen_replies", []).append(reply_id)
-                        
-                        # Respond in the thread
-                        run_agent_response(agent, reply, thread_ts=thread_ts, is_thread_reply=True)
+                        if is_mention:
+                            # New reply mentioning agent found!
+                            print(f"\n🧵 New thread reply detected!")
+                            print(f"   From: {reply.get('user', 'Unknown')}")
+                            print(f"   Text: {reply.get('text', '')[:100]}...")
+                            
+                            # Mark as seen
+                            agent_data.setdefault("seen_replies", []).append(reply_id)
+                            
+                            # Respond in the thread
+                            run_agent_response(agent, reply, thread_ts=thread_ts, is_thread_reply=True)
+                        else:
+                            # Mark as seen even if not a mention (to avoid re-checking)
+                            agent_data.setdefault("seen_replies", []).append(reply_id)
+                    
+                    # Mark the latest reply as seen for this thread
+                    latest_key = f"{thread_ts}:{thread_info['latest_reply']}"
+                    if latest_key not in agent_data.get("seen_replies", []):
+                        agent_data.setdefault("seen_replies", []).append(latest_key)
             
             # Save state
             save_seen_messages(seen_messages)
