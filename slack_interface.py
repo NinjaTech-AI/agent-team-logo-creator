@@ -1271,7 +1271,8 @@ def cmd_upload(client: SlackClient, tokens: SlackTokens, args) -> None:
     if comment:
         print(f"   Comment: {comment[:50]}{'...' if len(comment) > 50 else ''}")
     
-    result = client.upload_file(
+    # Use the v2 API (files.upload is deprecated)
+    result = client.upload_file_v2(
         token, channel, 
         file_path=file_path,
         title=title,
@@ -1280,11 +1281,14 @@ def cmd_upload(client: SlackClient, tokens: SlackTokens, args) -> None:
     )
     
     if result.get("ok"):
-        file_info = result.get('file', {})
-        print(f"✅ File uploaded successfully!")
-        print(f"   Name: {file_info.get('name', 'N/A')}")
-        print(f"   Size: {file_info.get('size', 0)} bytes")
-        print(f"   URL: {file_info.get('permalink', 'N/A')}")
+        files_info = result.get('files', [])
+        if files_info:
+            file_info = files_info[0]
+            print(f"✅ File uploaded successfully!")
+            print(f"   ID: {file_info.get('id', 'N/A')}")
+            print(f"   Title: {file_info.get('title', 'N/A')}")
+        else:
+            print(f"✅ File uploaded successfully!")
     else:
         error = result.get('error', 'Unknown error')
         print(f"❌ Failed to upload: {error}")
