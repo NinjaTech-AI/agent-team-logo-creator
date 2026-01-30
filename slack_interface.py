@@ -720,13 +720,13 @@ class SlackClient:
                     initial_comment: Optional[str] = None,
                     thread_ts: Optional[str] = None) -> Dict:
         """
-        Upload a file to Slack.
+        DEPRECATED: Upload a file to Slack using the legacy files.upload API.
         
-        API Method: files.upload
+        WARNING: This method uses the deprecated files.upload API which Slack
+        has marked for removal. Use upload_file_v2() instead.
+        
+        API Method: files.upload (DEPRECATED)
         Required Scopes: files:write
-        
-        You can either provide a file_path to upload from disk, or provide
-        content directly as a string.
         
         Args:
             token: Authentication token with files:write scope
@@ -740,7 +740,16 @@ class SlackClient:
             
         Returns:
             API response with 'ok', 'file' object on success
+            
+        See Also:
+            upload_file_v2: The recommended method using the newer API
         """
+        import warnings
+        warnings.warn(
+            "upload_file() uses deprecated files.upload API. Use upload_file_v2() instead.",
+            DeprecationWarning,
+            stacklevel=2
+        )
         url = f"{self.BASE_URL}/files.upload"
         headers = self._get_headers_multipart(token)
         
@@ -1922,7 +1931,7 @@ class SlackInterface:
     
     def upload_file(self, file_path: str, channel: Optional[str] = None,
                     title: Optional[str] = None, comment: Optional[str] = None,
-                    thread_ts: Optional[str] = None, use_v2: bool = True,
+                    thread_ts: Optional[str] = None,
                     agent: Optional[str] = None) -> Dict:
         """
         Upload a file to the default channel or specified channel.
@@ -1930,8 +1939,7 @@ class SlackInterface:
         Uses agent impersonation: first posts a message as the agent with the
         file title, then uploads the file as a reply to that message.
         
-        Uses the newer files.uploadV2 API by default (recommended).
-        The legacy files.upload API is deprecated but available via use_v2=False.
+        Uses the files.uploadV2 API (the legacy files.upload is deprecated).
         
         Requires 'files:write' and 'chat:write' scopes on the token.
         
@@ -2014,20 +2022,13 @@ class SlackInterface:
                 result["message_error"] = msg_response.get("error")
         
         # Upload the file (as a reply if we have a thread_ts)
-        if use_v2:
-            upload_response = self.client.upload_file_v2(
-                token, channel_id,
-                file_path=file_path,
-                title=file_title,
-                thread_ts=upload_thread_ts
-            )
-        else:
-            upload_response = self.client.upload_file(
-                token, channel_id,
-                file_path=file_path,
-                title=file_title,
-                thread_ts=upload_thread_ts
-            )
+        # Always use V2 API (legacy files.upload is deprecated)
+        upload_response = self.client.upload_file_v2(
+            token, channel_id,
+            file_path=file_path,
+            title=file_title,
+            thread_ts=upload_thread_ts
+        )
         
         if upload_response.get("ok"):
             result["ok"] = True
