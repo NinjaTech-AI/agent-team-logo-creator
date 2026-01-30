@@ -3,7 +3,7 @@
 Agent Monitor - Watches Slack for mentions and triggers agent responses.
 
 This script runs independently and only invokes Claude CLI when the agent
-is mentioned in Slack. It polls every 10 seconds and tracks seen messages.
+is mentioned in Slack. It polls every 45 seconds and tracks seen messages.
 
 Features:
 - Monitors main channel for mentions
@@ -22,6 +22,9 @@ import sys
 import re
 from pathlib import Path
 
+# Import centralized agent configuration
+from agents_config import AGENTS
+
 # Configuration
 REPO_ROOT = Path(__file__).parent
 CONFIG_PATH = Path.home() / ".agent_settings.json"
@@ -30,14 +33,6 @@ POLL_JITTER = 5  # random jitter seconds
 MAX_RUNTIME = 60 * 60  # 60 minutes in seconds
 SEEN_MESSAGES_FILE = REPO_ROOT / ".seen_messages.json"
 AGENT_MESSAGES_FILE = REPO_ROOT / ".agent_messages.json"  # Track agent's own messages for thread monitoring
-
-# Agent configuration
-AGENTS = {
-    "nova": {"name": "Nova", "role": "Product Manager", "emoji": "🌟", "mentions": ["nova", "Nova", "@nova"]},
-    "pixel": {"name": "Pixel", "role": "UX Designer", "emoji": "🎨", "mentions": ["pixel", "Pixel", "@pixel"]},
-    "bolt": {"name": "Bolt", "role": "Full-Stack Developer", "emoji": "⚡", "mentions": ["bolt", "Bolt", "@bolt"]},
-    "scout": {"name": "Scout", "role": "QA Engineer", "emoji": "🔍", "mentions": ["scout", "Scout", "@scout"]},
-}
 
 
 def load_config() -> dict:

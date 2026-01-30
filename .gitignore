@@ -60,4 +60,8 @@ logs/
 # Token files (should never be committed)
 *token*
 *secret*
-*.key.seen_messages.json
+*.key
+
+# Runtime state files (monitor tracking)
+.seen_messages.json
+.agent_messages.json

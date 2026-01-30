@@ -24,14 +24,8 @@ import shutil
 from pathlib import Path
 from datetime import datetime
 
-
-# Agent configuration
-AGENTS = {
-    "nova":  {"name": "Nova",  "role": "Product Manager",      "emoji": "🌟", "spec": "NOVA_SPEC.md"},
-    "pixel": {"name": "Pixel", "role": "UX Designer",          "emoji": "🎨", "spec": "PIXEL_SPEC.md"},
-    "bolt":  {"name": "Bolt",  "role": "Full-Stack Developer", "emoji": "⚡", "spec": "BOLT_SPEC.md"},
-    "scout": {"name": "Scout", "role": "QA Engineer",          "emoji": "🔍", "spec": "SCOUT_SPEC.md"},
-}
+# Import centralized agent configuration
+from agents_config import AGENTS
 
 REPO_ROOT = Path(__file__).parent
 CONFIG_PATH = Path.home() / ".agent_settings.json"
