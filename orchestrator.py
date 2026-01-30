@@ -190,7 +190,7 @@ def run_agent(agent: dict, task: str = "") -> None:
     # Permissions are configured in ~/.claude/settings.json
     try:
         subprocess.run(
-            ["claude", "-p", prompt],
+            [str(REPO_ROOT / "claude-wrapper.sh"), "-p", prompt],
             cwd=str(REPO_ROOT),
         )
     except FileNotFoundError:

@@ -186,7 +186,7 @@ OUTPUT ONLY THE RESPONSE TEXT - NO COMMANDS, NO EXPLANATIONS:"""
     try:
         # Get response from Claude
         result = subprocess.run(
-            ["claude", "-p", prompt],
+            [str(REPO_ROOT / "claude-wrapper.sh"), "-p", prompt],
             cwd=str(REPO_ROOT),
             capture_output=True,
             text=True,
