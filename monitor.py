@@ -22,6 +22,7 @@ REPO_ROOT = Path(__file__).parent
 CONFIG_PATH = Path.home() / ".agent_settings.json"
 POLL_INTERVAL = 45  # base seconds
 POLL_JITTER = 5  # random jitter seconds
+MAX_RUNTIME = 60 * 60  # 60 minutes in seconds
 SEEN_MESSAGES_FILE = REPO_ROOT / ".seen_messages.json"
 
 # Agent configuration
@@ -255,15 +256,22 @@ def main():
 ╠══════════════════════════════════════════════════════════════╣
 ║  Agent: {agent['name']} ({agent['role']})
 ║  Polling: Every {args.interval}s (+{POLL_JITTER}s jitter)
+║  Max runtime: {MAX_RUNTIME // 60} minutes
 ║  Mentions: {', '.join(agent['mentions'])}
 ╚══════════════════════════════════════════════════════════════╝
 """, flush=True)
     
     seen_messages = load_seen_messages()
-    print(f"📡 Starting monitor loop...", flush=True)
+    start_time = time.time()
+    print(f"📡 Starting monitor loop (max {MAX_RUNTIME // 60} minutes)...", flush=True)
     
     try:
         while True:
+            # Check if max runtime exceeded
+            elapsed = time.time() - start_time
+            if elapsed >= MAX_RUNTIME:
+                print(f"\n⏰ Max runtime ({MAX_RUNTIME // 60} minutes) reached. Stopping monitor.", flush=True)
+                break
             # Get recent messages
             messages = get_last_messages(10)
             print(f"📨 Got {len(messages)} messages", flush=True)
