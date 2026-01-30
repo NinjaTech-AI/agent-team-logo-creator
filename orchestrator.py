@@ -6,14 +6,15 @@ Agent identity is read from ~/.agent_settings.json config file.
 Agent behavior is defined by their markdown spec files in agent-docs/.
 
 Usage:
-    python orchestrator.py                    # Run two parallel processes (work + monitor)
+    python orchestrator.py                    # Launch monitor (watch for Slack mentions)
     python orchestrator.py --task "Do X"      # Run single task
     python orchestrator.py --list             # List all agents
     python orchestrator.py --test             # Run capability tests
 
-When run without --task, starts two parallel processes:
-  1. Work mode: Check Slack, sync with team, do work, update memory
-  2. Monitor mode: Check Slack every 1 min for 60 min, answer status questions
+When run without --task, launches monitor.py which:
+  - Polls Slack every 45s (+5s jitter) for new messages
+  - Detects agent name mentions
+  - Generates and posts responses via Claude CLI
 """
 
 import subprocess
@@ -370,26 +371,18 @@ Configuration:
     if args.task:
         run_agent(agent, args.task)
     else:
-        # No task specified - run two parallel processes
-        import multiprocessing
+        # No task specified - launch monitor.py
+        print(f"\n🚀 Launching monitor for {agent['name']}...")
+        print(f"   Watching for mentions in Slack")
+        print(f"   Press Ctrl+C to stop\n")
         
-        task1 = "Check Slack, sync with team, do your work, update your memory file."
-        task2 = "Check slack channel every 1 minute for next 60 minutes and answer any questions about your current status and progress."
-        
-        print(f"\n🚀 Starting two parallel processes...")
-        print(f"   Process 1: Work mode")
-        print(f"   Process 2: Monitor mode (60 min)")
-        
-        p1 = multiprocessing.Process(target=run_agent, args=(agent, task1))
-        p2 = multiprocessing.Process(target=run_agent, args=(agent, task2))
-        
-        p1.start()
-        p2.start()
-        
-        p1.join()
-        p2.join()
-        
-        print(f"\n✅ Both processes completed")
+        try:
+            subprocess.run(
+                ["python", "monitor.py"],
+                cwd=str(REPO_ROOT),
+            )
+        except KeyboardInterrupt:
+            print("\n\n👋 Monitor stopped")
 
 
 if __name__ == "__main__":
