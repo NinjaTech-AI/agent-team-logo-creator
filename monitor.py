@@ -199,6 +199,17 @@ OUTPUT ONLY THE RESPONSE TEXT - NO COMMANDS, NO EXPLANATIONS:"""
         if not response_text:
             response_text = f"Hey! {agent_emoji} I'm {agent_name}, the {agent_role}. I'm online and ready to help!"
         
+        # Clean up response - remove ANSI escape codes and terminal artifacts
+        # Remove OSC (Operating System Command) sequences like ]9;4;0;
+        response_text = re.sub(r'\][\d;]*[^\a\x07]*[\a\x07]?', '', response_text)
+        response_text = re.sub(r'\x1b\][\d;]*[^\x07]*\x07?', '', response_text)
+        # Remove other ANSI escape sequences
+        response_text = re.sub(r'\x1b\[[0-9;]*[a-zA-Z]', '', response_text)
+        # Remove any remaining escape characters and control codes
+        response_text = re.sub(r'[\x00-\x1f\x7f]', '', response_text)
+        # Clean up any leftover artifacts like ]9;4;0;
+        response_text = re.sub(r'\][\d;]+;?', '', response_text)
+        
         # Clean up response - remove any markdown code blocks or command artifacts
         response_text = response_text.replace("```", "").strip()
         if response_text.startswith("bash") or response_text.startswith("python"):
