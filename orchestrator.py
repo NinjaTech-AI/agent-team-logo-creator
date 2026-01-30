@@ -96,6 +96,8 @@ def build_prompt(agent: dict, task: str = "") -> str:
     prd = read_file(REPO_ROOT / "agent-docs" / "PRD.md")
     protocol = read_file(REPO_ROOT / "agent-docs" / "AGENT_PROTOCOL.md")
     slack_docs = read_file(REPO_ROOT / "agent-docs" / "SLACK_INTERFACE.md")
+    architecture = read_file(REPO_ROOT / "agent-docs" / "ARCHITECTURE.md")
+    onboarding = read_file(REPO_ROOT / "agent-docs" / "ONBOARDING.md")
     
     # Get default channel from config
     config = load_config()
@@ -115,6 +117,18 @@ def build_prompt(agent: dict, task: str = "") -> str:
 ## Your Specification
 
 {spec}
+
+---
+
+## Architecture
+
+{architecture}
+
+---
+
+## Onboarding
+
+{onboarding}
 
 ---
 
