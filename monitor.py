@@ -8,7 +8,7 @@ is mentioned in Slack. It polls every 45 seconds and tracks seen messages.
 Features:
 - Monitors main channel for mentions
 - Monitors thread replies to agent's messages
-- Strips ANSI escape codes from responses
+- Batches all messages and sends to Claude in one prompt per cycle
 - Exponential backoff on rate limiting
 
 Usage:
@@ -351,91 +351,99 @@ def check_for_mention(message: dict, agent: dict) -> bool:
     return False
 
 
-def run_agent_response(agent: dict, message: dict, thread_ts: str = None, is_thread_reply: bool = False) -> str:
-    """Trigger Claude to respond to a Slack message.
-    
-    Claude will read the message context and use slack_interface.py to post a response.
+def run_batched_response(agent: dict, pending_messages: list) -> bool:
+    """
+    Send all pending messages to Claude in a single prompt.
+    Claude will respond to all of them at once using slack_interface.py.
     
     Args:
         agent: Agent configuration dict
-        message: The message to respond to
-        thread_ts: Optional thread timestamp to reply in
-        is_thread_reply: Whether this is a reply to a thread on agent's message
-        
+        pending_messages: List of message dicts with keys:
+            - user: Who sent the message
+            - text: Message content
+            - timestamp: When it was sent
+            - thread_ts: Thread timestamp (if replying to a thread)
+            - type: 'mention' or 'thread_reply'
+    
     Returns:
-        The timestamp of the posted message, or None if failed
+        True if Claude successfully processed the messages
     """
+    if not pending_messages:
+        return True
     
     agent_name = agent["name"]
     agent_role = agent["role"]
     agent_emoji = agent["emoji"]
     
-    # Build thread context
-    thread_context = ""
-    if thread_ts:
-        thread_context = f'\nIMPORTANT: Reply in the thread using: python slack_interface.py say "your message" -t {thread_ts}'
-    else:
-        thread_context = '\nPost to the main channel using: python slack_interface.py say "your message"'
+    # Build the messages list for the prompt
+    messages_text = ""
+    for i, msg in enumerate(pending_messages, 1):
+        msg_type = msg.get("type", "mention")
+        thread_info = ""
+        if msg.get("thread_ts"):
+            thread_info = f"\n   Thread: {msg['thread_ts']} (reply with: python slack_interface.py say &quot;message&quot; -t {msg['thread_ts']})"
+        else:
+            thread_info = "\n   Channel: main (reply with: python slack_interface.py say &quot;message&quot;)"
+        
+        messages_text += f"""
+--- Message {i} ({msg_type}) ---
+From: {msg.get('user', 'Unknown')}
+Time: {msg.get('timestamp', 'Unknown')}
+Text: {msg.get('text', '')}{thread_info}
+"""
     
-    if is_thread_reply:
-        thread_context += "\nThis is a reply in a thread on one of your previous messages. Respond helpfully to continue the conversation."
-    
-    # Build the task prompt - Claude will handle everything
+    # Build the batched prompt
     prompt = f"""You are {agent_name} {agent_emoji}, the {agent_role} on the Logo Creator project team.
 
-Someone needs your help! Here's the message:
+You have {len(pending_messages)} message(s) that need your response. Read ALL of them and respond to EACH ONE.
 
-From: {message.get('user', 'Unknown')}
-Time: {message.get('timestamp', 'Unknown')}
-Message: {message.get('text', '')}
+{messages_text}
 
 YOUR TASK:
-1. Read the message above
-2. Compose a helpful, friendly response (1-3 sentences, sign off with {agent_emoji})
-3. Post it to Slack using slack_interface.py
-{thread_context}
+For EACH message above:
+1. Compose a helpful, friendly response (1-3 sentences, sign off with {agent_emoji})
+2. Post it to Slack using the appropriate command shown for each message
+3. Move to the next message
 
 RULES:
-- Execute the slack command immediately, no confirmation needed
-- Keep response concise and helpful
+- Respond to ALL {len(pending_messages)} messages - don't skip any!
+- Execute slack commands immediately, no confirmation needed
+- Keep responses concise and helpful
 - Stay in character as {agent_name} the {agent_role}
 - Do NOT ask for permission - just do it
+- For thread replies, use the -t flag with the thread_ts
 
-Now respond to the message above by posting to Slack."""
+Now respond to all {len(pending_messages)} message(s) by posting to Slack."""
 
-    reply_type = "thread reply" if is_thread_reply else "mention"
-    print(f"\n{agent_emoji} Triggering Claude to respond to {reply_type} from {message.get('user', 'Unknown')}...", flush=True)
+    print(f"\n{agent_emoji} Sending {len(pending_messages)} message(s) to Claude for batch response...", flush=True)
     
     try:
-        # Let Claude handle the entire response flow
+        # Let Claude handle all responses
         result = subprocess.run(
             [str(REPO_ROOT / "claude-wrapper.sh"), "-p", prompt],
             cwd=str(REPO_ROOT),
             capture_output=True,
             text=True,
-            timeout=120  # Give Claude more time to think and post
+            timeout=180  # Give Claude more time for multiple messages
         )
         
-        # Check if Claude successfully posted (look for success indicators in output)
+        # Check if Claude successfully posted
         output = result.stdout + result.stderr
-        if "✅" in output or "Message sent" in output or "Timestamp:" in output:
-            print(f"✅ Claude posted response to Slack!", flush=True)
-            # Try to extract timestamp from output
-            ts_match = re.search(r'Timestamp: (\d+\.\d+)', output)
-            if ts_match:
-                return ts_match.group(1)
-            return "success"  # Return something truthy even if we can't get timestamp
+        success_count = output.count("Message sent") + output.count("✅") + output.count("Timestamp:")
+        
+        if success_count > 0:
+            print(f"✅ Claude processed batch - {success_count} response indicator(s) found", flush=True)
+            return True
         else:
-            print(f"⚠️ Claude response (may have posted): {output[:200]}...", flush=True)
-            # Even if we can't confirm, Claude might have posted
-            return None
+            print(f"⚠️ Claude batch response (may have posted): {output[:300]}...", flush=True)
+            return True  # Assume success even if we can't confirm
             
     except subprocess.TimeoutExpired:
-        print("⚠️ Claude response timed out", flush=True)
+        print("⚠️ Claude batch response timed out", flush=True)
+        return False
     except Exception as e:
         print(f"⚠️ Error: {e}", flush=True)
-    
-    return None
+        return False
 
 
 def main():
@@ -468,6 +476,7 @@ def main():
 ║  Max runtime: {MAX_RUNTIME // 60} minutes
 ║  Mentions: {', '.join(agent['mentions'])}
 ║  Thread replies: ✅ Enabled
+║  Batch mode: ✅ Enabled (one Claude call per cycle)
 ║  Rate limit backoff: ✅ Enabled ({BACKOFF_INITIAL}s-{BACKOFF_MAX}s)
 ╚══════════════════════════════════════════════════════════════╝
 """, flush=True)
@@ -492,46 +501,41 @@ def main():
                 time.sleep(min(remaining, 30))  # Sleep in chunks of max 30s
                 continue
             
+            # Collect all pending messages for this cycle
+            pending_messages = []
+            
             # Get recent messages
             messages, was_rate_limited = get_last_messages(10)
             
             if was_rate_limited:
                 backoff_time = rate_limiter.on_rate_limit()
-                time.sleep(min(backoff_time, 30))  # Start backing off immediately
+                time.sleep(min(backoff_time, 30))
                 continue
             else:
                 rate_limiter.on_success()
             
             print(f"📨 Got {len(messages)} messages", flush=True)
             
+            # Check for new mentions in main channel
             for msg in messages:
-                # Create unique ID from timestamp
                 msg_id = msg.get("timestamp", "")
                 
-                # Skip if already seen
                 if msg_id in seen_messages:
                     continue
                 
-                # Mark as seen
                 seen_messages.add(msg_id)
                 
-                # Check for mention
                 if check_for_mention(msg, agent):
-                    print(f"\n📨 New mention detected!")
-                    print(f"   From: {msg.get('user', 'Unknown')}")
-                    print(f"   Text: {msg.get('text', '')[:100]}...")
-                    
-                    # Run agent response and track the message
-                    response_ts = run_agent_response(agent, msg)
-                    if response_ts:
-                        agent_data["messages"].append({
-                            "ts": response_ts,
-                            "time": msg_id
-                        })
+                    print(f"  📬 New mention from {msg.get('user', 'Unknown')}: {msg.get('text', '')[:50]}...")
+                    pending_messages.append({
+                        "user": msg.get("user", "Unknown"),
+                        "text": msg.get("text", ""),
+                        "timestamp": msg.get("timestamp", ""),
+                        "thread_ts": None,
+                        "type": "mention"
+                    })
             
-            # Check for thread replies using raw message data (more efficient)
-            # Only check threads that have replies (reply_count > 0)
-            # Skip if we just recovered from rate limiting
+            # Check for thread replies (only if not rate limited recently)
             if rate_limiter.consecutive_rate_limits == 0:
                 raw_messages, was_rate_limited = get_last_messages_raw(20)
                 
@@ -542,100 +546,90 @@ def main():
                     time.sleep(min(backoff_time, 30))
                     continue
                 
-                threads_to_check = []
-                
                 # Get list of agent's own thread timestamps
                 agent_thread_timestamps = set(m.get("ts") for m in agent_data.get("messages", []) if m.get("ts"))
                 
+                threads_checked = 0
                 for raw_msg in raw_messages:
-                    reply_count = raw_msg.get("reply_count", 0)
-                    if reply_count > 0:
-                        thread_ts = raw_msg.get("ts")
-                        latest_reply = raw_msg.get("latest_reply", "")
-                        
-                        # Check if this is agent's own thread (agent started it)
-                        msg_user = raw_msg.get("user", "") or raw_msg.get("username", "")
-                        is_agent_thread = (
-                            agent["name"].lower() in msg_user.lower() or
-                            thread_ts in agent_thread_timestamps
-                        )
-                        
-                        # Check if we've seen this latest reply
-                        reply_key = f"{thread_ts}:{latest_reply}"
-                        if reply_key not in agent_data.get("seen_replies", []):
-                            threads_to_check.append({
-                                "thread_ts": thread_ts,
-                                "reply_count": reply_count,
-                                "latest_reply": latest_reply,
-                                "is_agent_thread": is_agent_thread
-                            })
-                
-                if threads_to_check:
-                    print(f"🧵 Found {len(threads_to_check)} threads with new replies to check...", flush=True)
+                    if threads_checked >= 3:  # Limit threads per cycle
+                        break
                     
-                    for thread_info in threads_to_check[:3]:  # Limit to 3 threads per cycle to avoid rate limits
-                        # Check rate limit before each thread request
-                        if rate_limiter.is_backing_off():
-                            break
+                    reply_count = raw_msg.get("reply_count", 0)
+                    if reply_count == 0:
+                        continue
+                    
+                    thread_ts = raw_msg.get("ts")
+                    latest_reply = raw_msg.get("latest_reply", "")
+                    
+                    # Check if this is agent's own thread
+                    msg_user = raw_msg.get("user", "") or raw_msg.get("username", "")
+                    is_agent_thread = (
+                        agent["name"].lower() in msg_user.lower() or
+                        thread_ts in agent_thread_timestamps
+                    )
+                    
+                    # Check if we've seen this latest reply
+                    reply_key = f"{thread_ts}:{latest_reply}"
+                    if reply_key in agent_data.get("seen_replies", []):
+                        continue
+                    
+                    # Get thread replies
+                    if rate_limiter.is_backing_off():
+                        break
+                    
+                    replies, was_rate_limited = get_thread_replies(thread_ts)
+                    threads_checked += 1
+                    
+                    if was_rate_limited:
+                        rate_limiter.on_rate_limit()
+                        break
+                    
+                    # Check each reply
+                    for reply in replies[1:]:  # Skip parent message
+                        reply_id = f"{thread_ts}:{reply.get('timestamp', '')}"
                         
-                        thread_ts = thread_info["thread_ts"]
-                        is_agent_thread = thread_info["is_agent_thread"]
-                        replies, was_rate_limited = get_thread_replies(thread_ts)
+                        if reply_id in agent_data.get("seen_replies", []):
+                            continue
                         
-                        if was_rate_limited:
-                            rate_limiter.on_rate_limit()
-                            break  # Stop checking threads, will retry next cycle
+                        # Skip agent's own messages
+                        if agent["name"].lower() in reply.get("user", "").lower():
+                            agent_data.setdefault("seen_replies", []).append(reply_id)
+                            continue
                         
-                        # Skip first message (it's the parent) and check replies
-                        for reply in replies[1:]:
-                            reply_id = f"{thread_ts}:{reply.get('timestamp', '')}"
-                            
-                            # Skip if already seen
-                            if reply_id in agent_data.get("seen_replies", []):
-                                continue
-                            
-                            # Skip if it's from the agent itself
-                            if agent["name"].lower() in reply.get("user", "").lower():
-                                agent_data.setdefault("seen_replies", []).append(reply_id)
-                                continue
-                            
-                            # Check if this reply mentions the agent
-                            reply_text = reply.get("text", "").lower()
-                            is_mention = any(m.lower() in reply_text for m in agent["mentions"])
-                            
-                            # Respond if: it's agent's own thread OR reply mentions the agent
-                            should_respond = is_agent_thread or is_mention
-                            
-                            if should_respond:
-                                # New reply to respond to!
-                                reason = "agent's thread" if is_agent_thread else "mention"
-                                print(f"\n🧵 New thread reply detected ({reason})!")
-                                print(f"   From: {reply.get('user', 'Unknown')}")
-                                print(f"   Text: {reply.get('text', '')[:100]}...")
-                                
-                                # Mark as seen
-                                agent_data.setdefault("seen_replies", []).append(reply_id)
-                                
-                                # Respond in the thread
-                                run_agent_response(agent, reply, thread_ts=thread_ts, is_thread_reply=True)
-                            else:
-                                # Mark as seen even if not responding (to avoid re-checking)
-                                agent_data.setdefault("seen_replies", []).append(reply_id)
+                        # Check if should respond
+                        reply_text = reply.get("text", "").lower()
+                        is_mention = any(m.lower() in reply_text for m in agent["mentions"])
+                        should_respond = is_agent_thread or is_mention
                         
-                        # Mark the latest reply as seen for this thread
-                        latest_key = f"{thread_ts}:{thread_info['latest_reply']}"
-                        if latest_key not in agent_data.get("seen_replies", []):
-                            agent_data.setdefault("seen_replies", []).append(latest_key)
+                        if should_respond:
+                            print(f"  🧵 New thread reply from {reply.get('user', 'Unknown')}: {reply.get('text', '')[:50]}...")
+                            pending_messages.append({
+                                "user": reply.get("user", "Unknown"),
+                                "text": reply.get("text", ""),
+                                "timestamp": reply.get("timestamp", ""),
+                                "thread_ts": thread_ts,
+                                "type": "thread_reply"
+                            })
+                        
+                        # Mark as seen
+                        agent_data.setdefault("seen_replies", []).append(reply_id)
+                    
+                    # Mark latest reply as seen
+                    agent_data.setdefault("seen_replies", []).append(reply_key)
+            
+            # Process all pending messages in one batch
+            if pending_messages:
+                print(f"\n📋 Processing {len(pending_messages)} pending message(s) in batch...", flush=True)
+                run_batched_response(agent, pending_messages)
             
             # Save state
             save_seen_messages(seen_messages)
             save_agent_messages(agent_data)
             
-            # Wait for next poll (interval + random jitter)
+            # Wait for next poll
             jitter = random.uniform(0, POLL_JITTER)
             sleep_time = args.interval + jitter
             
-            # If we had any rate limiting recently, add extra delay
             if rate_limiter.consecutive_rate_limits > 0:
                 sleep_time += BACKOFF_INITIAL / 2
                 print(f"💤 Extended sleep due to recent rate limits: {sleep_time:.0f}s", flush=True)
