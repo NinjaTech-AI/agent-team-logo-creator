@@ -352,7 +352,9 @@ def check_for_mention(message: dict, agent: dict) -> bool:
 
 
 def run_agent_response(agent: dict, message: dict, thread_ts: str = None, is_thread_reply: bool = False) -> str:
-    """Generate a response using Claude and post it directly to Slack.
+    """Trigger Claude to respond to a Slack message.
+    
+    Claude will read the message context and use slack_interface.py to post a response.
     
     Args:
         agent: Agent configuration dict
@@ -368,111 +370,68 @@ def run_agent_response(agent: dict, message: dict, thread_ts: str = None, is_thr
     agent_role = agent["role"]
     agent_emoji = agent["emoji"]
     
-    # Build context for thread replies
-    context = ""
-    if is_thread_reply:
-        context = "\nThis is a reply in a thread on one of your previous messages. Respond helpfully to continue the conversation."
+    # Build thread context
+    thread_context = ""
+    if thread_ts:
+        thread_context = f'\nIMPORTANT: Reply in the thread using: python slack_interface.py say "your message" -t {thread_ts}'
+    else:
+        thread_context = '\nPost to the main channel using: python slack_interface.py say "your message"'
     
-    # Build a focused task prompt - ask Claude to generate ONLY the response text
-    task = f"""Someone mentioned you in Slack! Here's the message:
+    if is_thread_reply:
+        thread_context += "\nThis is a reply in a thread on one of your previous messages. Respond helpfully to continue the conversation."
+    
+    # Build the task prompt - Claude will handle everything
+    prompt = f"""You are {agent_name} {agent_emoji}, the {agent_role} on the Logo Creator project team.
+
+Someone needs your help! Here's the message:
 
 From: {message.get('user', 'Unknown')}
 Time: {message.get('timestamp', 'Unknown')}
 Message: {message.get('text', '')}
-{context}
 
-Generate a helpful, friendly response as {agent_name} the {agent_role}.
-Keep it concise (1-3 sentences).
-Do NOT include any commands or code blocks.
-Do NOT ask for permission or confirmation.
-Just output the response text that should be posted to Slack.
-Sign off with your emoji {agent_emoji}"""
+YOUR TASK:
+1. Read the message above
+2. Compose a helpful, friendly response (1-3 sentences, sign off with {agent_emoji})
+3. Post it to Slack using slack_interface.py
+{thread_context}
 
-    # Read agent spec for context
-    spec_file = REPO_ROOT / "agent-docs" / f"{agent_name.upper()}_SPEC.md"
-    spec = ""
-    if spec_file.exists():
-        spec = spec_file.read_text()[:1500]  # First 1500 chars for context
-    
-    prompt = f"""# You are {agent_name} {agent_emoji}
+RULES:
+- Execute the slack command immediately, no confirmation needed
+- Keep response concise and helpful
+- Stay in character as {agent_name} the {agent_role}
+- Do NOT ask for permission - just do it
 
-## Identity
-- Name: {agent_name}
-- Role: {agent_role}
-
-## Brief Context
-{spec[:800] if spec else "You are an AI agent on a development team."}
-
-## Task
-{task}
-
-OUTPUT ONLY THE RESPONSE TEXT - NO COMMANDS, NO EXPLANATIONS:"""
+Now respond to the message above by posting to Slack."""
 
     reply_type = "thread reply" if is_thread_reply else "mention"
-    print(f"\n{agent_emoji} Generating response to {reply_type} from {message.get('user', 'Unknown')}...", flush=True)
+    print(f"\n{agent_emoji} Triggering Claude to respond to {reply_type} from {message.get('user', 'Unknown')}...", flush=True)
     
     try:
-        # Get response from Claude
+        # Let Claude handle the entire response flow
         result = subprocess.run(
             [str(REPO_ROOT / "claude-wrapper.sh"), "-p", prompt],
             cwd=str(REPO_ROOT),
             capture_output=True,
             text=True,
-            timeout=60
+            timeout=120  # Give Claude more time to think and post
         )
         
-        response_text = result.stdout.strip()
-        
-        if not response_text:
-            response_text = f"Hey! {agent_emoji} I'm {agent_name}, the {agent_role}. I'm online and ready to help!"
-        
-        # Clean up response - remove ANSI escape codes and terminal artifacts
-        # Remove OSC (Operating System Command) sequences like ]9;4;0;
-        response_text = re.sub(r'\][\d;]*[^\a\x07]*[\a\x07]?', '', response_text)
-        response_text = re.sub(r'\x1b\][\d;]*[^\x07]*\x07?', '', response_text)
-        # Remove other ANSI escape sequences
-        response_text = re.sub(r'\x1b\[[0-9;]*[a-zA-Z]', '', response_text)
-        # Remove any remaining escape characters and control codes
-        response_text = re.sub(r'[\x00-\x1f\x7f]', '', response_text)
-        # Clean up any leftover artifacts like ]9;4;0;
-        response_text = re.sub(r'\][\d;]+;?', '', response_text)
-        
-        # Clean up response - remove any markdown code blocks or command artifacts
-        response_text = response_text.replace("```", "").strip()
-        if response_text.startswith("bash") or response_text.startswith("python"):
-            response_text = f"Hey! {agent_emoji} I'm {agent_name}, online and ready to help!"
-        
-        # Limit response length
-        if len(response_text) > 500:
-            response_text = response_text[:500] + "..."
-        
-        print(f"📝 Response: {response_text[:100]}...", flush=True)
-        
-        # Build slack command - add thread flag if replying to a thread
-        slack_cmd = ["python", "slack_interface.py", "say", response_text]
-        if thread_ts:
-            slack_cmd.extend(["-t", thread_ts])
-        
-        # Post directly to Slack using slack_interface.py
-        slack_result = subprocess.run(
-            slack_cmd,
-            cwd=str(REPO_ROOT),
-            capture_output=True,
-            text=True,
-            timeout=30
-        )
-        
-        if slack_result.returncode == 0:
-            print(f"✅ Response posted to Slack!", flush=True)
+        # Check if Claude successfully posted (look for success indicators in output)
+        output = result.stdout + result.stderr
+        if "✅" in output or "Message sent" in output or "Timestamp:" in output:
+            print(f"✅ Claude posted response to Slack!", flush=True)
             # Try to extract timestamp from output
-            ts_match = re.search(r'Timestamp: (\d+\.\d+)', slack_result.stdout)
+            ts_match = re.search(r'Timestamp: (\d+\.\d+)', output)
             if ts_match:
                 return ts_match.group(1)
+            return "success"  # Return something truthy even if we can't get timestamp
         else:
-            print(f"⚠️ Slack error: {slack_result.stderr}", flush=True)
+            print(f"⚠️ Claude response (may have posted): {output[:200]}...", flush=True)
+            # Even if we can't confirm, Claude might have posted
+            return None
             
     except subprocess.TimeoutExpired:
-        print("⚠️ Response timed out", flush=True)
+        print("⚠️ Claude response timed out", flush=True)
     except Exception as e:
         print(f"⚠️ Error: {e}", flush=True)
     
