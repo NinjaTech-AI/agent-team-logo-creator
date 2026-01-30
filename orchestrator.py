@@ -187,9 +187,10 @@ def run_agent(agent: dict, task: str = "") -> None:
     
     # Run Claude Code CLI
     # -p: Print mode (non-interactive)
+    # --dangerously-skip-permissions: Skip permission checks for headless mode
     try:
         subprocess.run(
-            ["claude", "-p", prompt],
+            ["claude", "-p", "--dangerously-skip-permissions", prompt],
             cwd=str(REPO_ROOT),
         )
     except FileNotFoundError:
