@@ -1,6 +1,10 @@
 # Agent Team Logo Creator
 
+![Agent Team](cover_photo.png)
+
 A multi-agent AI system for creating team logos, powered by collaborative AI agents communicating via Slack.
+
+The Agent Team Logo Creator is a collaborative multi-agent system designed to transform the creative process of logo development into an orchestrated, intelligent workflow. The system comprises four specialized AI agents, each embodying a distinct role within a traditional design team: Nova serves as the Project Manager, coordinating tasks and ensuring alignment with client requirements; Pixel brings creative vision as the UX Designer, crafting visual concepts and iterating on aesthetic direction; Bolt operates as the Developer, translating designs into technical implementations and managing the codebase; and Scout functions as the Quality Assurance specialist, rigorously testing outputs and validating that deliverables meet established standards. These agents communicate through a shared Slack workspace, mimicking the natural collaboration patterns of human teams while leveraging the speed and consistency of AI-driven execution.
 
 ## 🤖 The Agent Team
 
