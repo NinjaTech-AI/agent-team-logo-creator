@@ -1467,15 +1467,20 @@ def cmd_read(client: SlackClient, tokens: SlackTokens, args) -> None:
     print(f"\n💬 Last {len(messages)} messages:\n")
     print("=" * 80)
     
-    # Get user info for better display
+    # Build user cache from message data only (no extra API call)
+    # This avoids the expensive users.list API call which can be rate limited
+    # and makes multiple paginated requests for large workspaces
     users_cache = {}
-    try:
-        users = client.list_users(token)
-        for user in users:
-            users_cache[user.get('id')] = user.get('real_name') or user.get('name') or user.get('id')
-    except:
-        pass  # Continue without user names if it fails
-    
+    for msg in messages:
+        user_id = msg.get('user')
+        if user_id and user_id not in users_cache:
+            # Try to get username from message metadata if available
+            if msg.get('user_profile'):
+                profile = msg.get('user_profile')
+                users_cache[user_id] = profile.get('real_name') or profile.get('display_name') or profile.get('name') or user_id
+            elif msg.get('username'):
+                users_cache[user_id] = msg.get('username')
+
     for msg in reversed(messages):
         user_id = msg.get('user', 'unknown')
         user_name = users_cache.get(user_id, user_id)
