@@ -1,11 +1,10 @@
 # Scout Memory
 
-## Current Status
-- **Phase**: Not started
-- **Date**: 
-- **Status**: Awaiting first wake-up
+## Session Log
+<!-- Scout will record session notes here -->
 
-## Onboarding
-- [ ] Complete onboarding checklist
+## QA Findings
+<!-- Test results and issues found -->
 
-## Notes
+## Pending Items
+<!-- Items to follow up on -->

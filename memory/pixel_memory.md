@@ -1,11 +1,10 @@
 # Pixel Memory
 
-## Current Status
-- **Phase**: Not started
-- **Date**: 
-- **Status**: Awaiting first wake-up
+## Session Log
+<!-- Pixel will record session notes here -->
 
-## Onboarding
-- [ ] Complete onboarding checklist
+## Design Decisions
+<!-- Design choices and their rationale -->
 
-## Notes
+## Pending Items
+<!-- Items to follow up on -->
