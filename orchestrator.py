@@ -29,6 +29,94 @@ from agents_config import AGENTS
 
 REPO_ROOT = Path(__file__).parent
 CONFIG_PATH = Path.home() / ".agent_settings.json"
+LOCK_FILE = REPO_ROOT / ".orchestrator.lock"
+
+
+def check_single_instance():
+    """
+    Ensure only one instance of the orchestrator is running.
+    Uses a lock file with PID to detect and prevent duplicate instances.
+    
+    Raises:
+        SystemExit if another instance is already running
+    """
+    import os
+    
+    current_pid = os.getpid()
+    
+    if LOCK_FILE.exists():
+        try:
+            with open(LOCK_FILE, 'r') as f:
+                lock_data = json.load(f)
+            
+            old_pid = lock_data.get('pid')
+            old_agent = lock_data.get('agent', 'unknown')
+            old_started = lock_data.get('started', 'unknown')
+            
+            # Check if the old process is still running
+            if old_pid:
+                try:
+                    # Send signal 0 to check if process exists
+                    os.kill(old_pid, 0)
+                    # Process exists - another instance is running
+                    print("=" * 70, file=sys.stderr)
+                    print("ERROR: Another orchestrator instance is already running!", file=sys.stderr)
+                    print("=" * 70, file=sys.stderr)
+                    print("", file=sys.stderr)
+                    print(f"   Existing instance:", file=sys.stderr)
+                    print(f"   - PID: {old_pid}", file=sys.stderr)
+                    print(f"   - Agent: {old_agent}", file=sys.stderr)
+                    print(f"   - Started: {old_started}", file=sys.stderr)
+                    print("", file=sys.stderr)
+                    print("   To stop the existing instance:", file=sys.stderr)
+                    print(f"   - kill {old_pid}", file=sys.stderr)
+                    print("   - Or: pkill -f 'orchestrator.py'", file=sys.stderr)
+                    print("", file=sys.stderr)
+                    print("   To force remove the lock (if process is stuck):", file=sys.stderr)
+                    print(f"   - rm {LOCK_FILE}", file=sys.stderr)
+                    print("=" * 70, file=sys.stderr)
+                    sys.exit(1)
+                except OSError:
+                    # Process doesn't exist - stale lock file, we can proceed
+                    print(f"Removing stale lock file (PID {old_pid} no longer running)")
+        except (json.JSONDecodeError, IOError, KeyError):
+            # Corrupted lock file, remove it
+            print("Removing corrupted lock file")
+    
+    # Create/update lock file with current process info
+    lock_data = {
+        'pid': current_pid,
+        'agent': None,  # Will be updated after agent is determined
+        'started': datetime.now().isoformat(),
+    }
+    
+    try:
+        with open(LOCK_FILE, 'w') as f:
+            json.dump(lock_data, f)
+    except IOError as e:
+        print(f"Warning: Could not create lock file: {e}", file=sys.stderr)
+
+
+def update_lock_file(agent_name: str):
+    """Update the lock file with the agent name after it's determined."""
+    if LOCK_FILE.exists():
+        try:
+            with open(LOCK_FILE, 'r') as f:
+                lock_data = json.load(f)
+            lock_data['agent'] = agent_name
+            with open(LOCK_FILE, 'w') as f:
+                json.dump(lock_data, f)
+        except (json.JSONDecodeError, IOError):
+            pass
+
+
+def remove_lock_file():
+    """Remove the lock file when orchestrator exits."""
+    try:
+        if LOCK_FILE.exists():
+            LOCK_FILE.unlink()
+    except IOError:
+        pass
 
 
 def load_config() -> dict:
@@ -40,7 +128,7 @@ def load_config() -> dict:
         with open(CONFIG_PATH, 'r') as f:
             return json.load(f)
     except (json.JSONDecodeError, IOError) as e:
-        print(f"⚠️ Warning: Could not read config: {e}", file=sys.stderr)
+        print(f"Warning: Could not read config: {e}", file=sys.stderr)
         return {}
 
 
@@ -86,23 +174,102 @@ def read_file(path: Path) -> str:
     return path.read_text() if path.exists() else ""
 
 
-def build_prompt(agent: dict, task: str = "") -> str:
-    """Build the prompt for an agent from their spec and memory."""
+def build_prompt(agent: dict, task: str = "", use_references: bool = True) -> str:
+    """Build the prompt for an agent from their spec and memory.
     
-    spec = read_file(REPO_ROOT / "agent-docs" / agent["spec"])
-    memory = read_file(REPO_ROOT / "memory" / f"{agent['name'].lower()}_memory.md")
-    prd = read_file(REPO_ROOT / "agent-docs" / "PRD.md")
-    protocol = read_file(REPO_ROOT / "agent-docs" / "AGENT_PROTOCOL.md")
-    slack_docs = read_file(REPO_ROOT / "agent-docs" / "SLACK_INTERFACE.md")
-    architecture = read_file(REPO_ROOT / "agent-docs" / "ARCHITECTURE.md")
+    Args:
+        agent: Agent configuration dict
+        task: Optional specific task
+        use_references: If True, use file references instead of embedding content (saves ~100KB)
+    """
     
     # Get default channel from config
     config = load_config()
     channel = config.get("default_channel_name", config.get("default_channel", "#logo-creator"))
-    
     default_task = f"Check Slack {channel}, sync with team, do your work, update your memory file."
     
-    return f"""# You are {agent['name']} {agent['emoji']}
+    if use_references:
+        # OPTIMIZED: Use file references instead of embedding content
+        # This reduces prompt size from ~100KB to ~3KB
+        memory = read_file(REPO_ROOT / "memory" / f"{agent['name'].lower()}_memory.md")
+        prd = read_file(REPO_ROOT / "agent-docs" / "PRD.md")
+        
+        return f"""# You are {agent['name']} {agent['emoji']}
+
+## Your Identity
+- **Name:** {agent['name']}
+- **Role:** {agent['role']}
+- **Emoji:** {agent['emoji']}
+
+---
+
+## Documentation Files (READ THESE FIRST)
+
+Before starting work, read these files for full context:
+
+1. **Your Specification:** `cat agent-docs/{agent['spec']}`
+2. **Architecture:** `cat agent-docs/ARCHITECTURE.md`
+3. **Communication Protocol:** `cat agent-docs/AGENT_PROTOCOL.md`
+4. **Slack Interface Docs:** `cat agent-docs/SLACK_INTERFACE.md`
+5. **Onboarding Guide:** `cat agent-docs/ONBOARDING.md`
+
+---
+
+## Current PRD
+
+{prd if prd else "No PRD yet. Nova needs to interview the human (Babak/Arash) to create it. See agent-docs/PRD.md"}
+
+---
+
+## Your Memory
+
+{memory if memory else "No previous memory. This is your first session."}
+
+---
+
+## Quick Reference
+
+**Slack Commands:**
+- `python slack_interface.py read -l 50` - Read recent messages
+- `python slack_interface.py say "message"` - Post updates
+- `python slack_interface.py config` - Check configuration
+
+**GitHub Commands:**
+- `gh issue list` - List issues
+- `gh issue create --title "..." --body "..."` - Create issue
+
+---
+
+## Headless Mode
+
+You are running in **headless CLI mode** - there is no human at the terminal.
+
+**Communicate via Slack only** using `python slack_interface.py`.
+
+**Workflow:**
+1. Read your spec file first: `cat agent-docs/{agent['spec']}`
+2. Read Slack for context
+3. Do your work
+4. Post updates to Slack
+5. Commit changes to git
+6. Update your memory file (`memory/{agent['name'].lower()}_memory.md`)
+
+---
+
+## Current Task
+
+{task if task else default_task}
+"""
+    else:
+        # LEGACY: Embed full content (large prompt ~100KB)
+        spec = read_file(REPO_ROOT / "agent-docs" / agent["spec"])
+        memory = read_file(REPO_ROOT / "memory" / f"{agent['name'].lower()}_memory.md")
+        prd = read_file(REPO_ROOT / "agent-docs" / "PRD.md")
+        protocol = read_file(REPO_ROOT / "agent-docs" / "AGENT_PROTOCOL.md")
+        slack_docs = read_file(REPO_ROOT / "agent-docs" / "SLACK_INTERFACE.md")
+        architecture = read_file(REPO_ROOT / "agent-docs" / "ARCHITECTURE.md")
+        
+        return f"""# You are {agent['name']} {agent['emoji']}
 
 ## Your Identity
 - **Name:** {agent['name']}
@@ -182,11 +349,16 @@ def run_agent(agent: dict, task: str = "") -> None:
     # Run Claude Code CLI
     # -p: Print mode (non-interactive)
     # Permissions are configured in ~/.claude/settings.json
+    # Timeout: 15 minutes (900 seconds) to allow for complex tasks
     try:
         subprocess.run(
             [str(REPO_ROOT / "claude-wrapper.sh"), "-p", prompt],
             cwd=str(REPO_ROOT),
+            timeout=900,  # 15 minutes
         )
+    except subprocess.TimeoutExpired:
+        print("⏰ Claude CLI timed out after 15 minutes")
+        print("")
     except FileNotFoundError:
         print("❌ Claude CLI not found!")
         print("")
@@ -350,8 +522,28 @@ Configuration:
         print()
         return
     
+    # Check for existing instance BEFORE doing anything else
+    check_single_instance()
+    
+    # Register cleanup handler to remove lock file on exit
+    import atexit
+    import signal
+    
+    atexit.register(remove_lock_file)
+    
+    # Also handle SIGTERM and SIGINT to clean up lock file
+    def signal_handler(signum, frame):
+        remove_lock_file()
+        sys.exit(0)
+    
+    signal.signal(signal.SIGTERM, signal_handler)
+    signal.signal(signal.SIGINT, signal_handler)
+    
     # Get agent from config (will exit if not configured)
     agent = get_agent_from_config()
+    
+    # Update lock file with agent name
+    update_lock_file(agent['name'])
     
     # Show which agent we're running
     config = load_config()

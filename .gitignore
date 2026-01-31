@@ -65,5 +65,6 @@ logs/
 # Runtime state files (monitor tracking)
 .seen_messages.json
 .agent_messages.json
+.orchestrator.lock
 config/settings_arash.json
 settings_arash.json

@@ -29,7 +29,7 @@ from agents_config import AGENTS
 # Configuration
 REPO_ROOT = Path(__file__).parent
 CONFIG_PATH = Path.home() / ".agent_settings.json"
-POLL_INTERVAL = 45  # base seconds
+POLL_INTERVAL = 60  # base seconds
 POLL_JITTER = 5  # random jitter seconds
 MAX_RUNTIME = 60 * 60  # 60 minutes in seconds
 SEEN_MESSAGES_FILE = REPO_ROOT / ".seen_messages.json"
@@ -381,9 +381,9 @@ def run_batched_response(agent: dict, pending_messages: list) -> bool:
         msg_type = msg.get("type", "mention")
         thread_info = ""
         if msg.get("thread_ts"):
-            thread_info = f"\n   Thread: {msg['thread_ts']} (reply with: python slack_interface.py say &quot;message&quot; -t {msg['thread_ts']})"
+            thread_info = f'\n   Thread: {msg["thread_ts"]} (reply with: python slack_interface.py say "message" -t {msg["thread_ts"]})'
         else:
-            thread_info = "\n   Channel: main (reply with: python slack_interface.py say &quot;message&quot;)"
+            thread_info = '\n   Channel: main (reply with: python slack_interface.py say "message")'
         
         messages_text += f"""
 --- Message {i} ({msg_type}) ---
