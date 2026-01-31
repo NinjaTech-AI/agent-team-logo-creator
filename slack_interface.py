@@ -80,11 +80,99 @@ import argparse
 import json
 import os
 import sys
+import time
 import requests
 from typing import Optional, Dict, List, Any, Union
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
+from functools import wraps
+
+
+# ============================================================================
+# Retry Logic with Exponential Backoff
+# ============================================================================
+
+def retry_with_backoff(max_retries: int = 5, base_delay: float = 1.0, max_delay: float = 60.0):
+    """
+    Decorator that retries a function with exponential backoff on rate limiting or transient errors.
+    
+    Args:
+        max_retries: Maximum number of retry attempts (default: 5)
+        base_delay: Initial delay in seconds (default: 1.0)
+        max_delay: Maximum delay in seconds (default: 60.0)
+    
+    Handles:
+        - HTTP 429 (Too Many Requests / Rate Limited)
+        - HTTP 500, 502, 503, 504 (Server errors)
+        - Slack API rate_limited errors
+        - Connection errors
+    """
+    def decorator(func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            last_exception = None
+            
+            for attempt in range(max_retries + 1):
+                try:
+                    result = func(*args, **kwargs)
+                    
+                    # Check if result is a dict with Slack API error
+                    if isinstance(result, dict):
+                        if result.get('error') == 'ratelimited' or result.get('error') == 'rate_limited':
+                            retry_after = result.get('retry_after', base_delay * (2 ** attempt))
+                            if attempt < max_retries:
+                                delay = min(float(retry_after), max_delay)
+                                print(f"[Rate Limited] Retry {attempt + 1}/{max_retries} after {delay:.1f}s...", file=sys.stderr)
+                                time.sleep(delay)
+                                continue
+                    
+                    return result
+                    
+                except requests.exceptions.HTTPError as e:
+                    last_exception = e
+                    status_code = e.response.status_code if e.response is not None else 0
+                    
+                    # Rate limited
+                    if status_code == 429:
+                        retry_after = e.response.headers.get('Retry-After', base_delay * (2 ** attempt))
+                        if attempt < max_retries:
+                            delay = min(float(retry_after), max_delay)
+                            print(f"[HTTP 429 Rate Limited] Retry {attempt + 1}/{max_retries} after {delay:.1f}s...", file=sys.stderr)
+                            time.sleep(delay)
+                            continue
+                    
+                    # Server errors (retriable)
+                    elif status_code in (500, 502, 503, 504):
+                        if attempt < max_retries:
+                            delay = min(base_delay * (2 ** attempt), max_delay)
+                            print(f"[HTTP {status_code}] Retry {attempt + 1}/{max_retries} after {delay:.1f}s...", file=sys.stderr)
+                            time.sleep(delay)
+                            continue
+                    
+                    # Non-retriable HTTP error
+                    raise
+                    
+                except (requests.exceptions.ConnectionError, requests.exceptions.Timeout) as e:
+                    last_exception = e
+                    if attempt < max_retries:
+                        delay = min(base_delay * (2 ** attempt), max_delay)
+                        print(f"[Connection Error] Retry {attempt + 1}/{max_retries} after {delay:.1f}s...", file=sys.stderr)
+                        time.sleep(delay)
+                        continue
+                    raise
+                    
+                except requests.exceptions.RequestException as e:
+                    # Other request exceptions - don't retry
+                    raise
+            
+            # If we've exhausted all retries, raise the last exception
+            if last_exception:
+                raise last_exception
+            return result
+            
+        return wrapper
+    return decorator
 
 
 # ============================================================================
@@ -452,30 +540,87 @@ class SlackClient:
             # Note: Don't set Content-Type for multipart - requests handles it
         }
     
-    def _api_call(self, method: str, token: str, params: Optional[Dict] = None) -> Dict:
+    def _api_call(self, method: str, token: str, params: Optional[Dict] = None, 
+                   max_retries: int = 5, base_delay: float = 1.0) -> Dict:
         """
-        Make a Slack API call.
+        Make a Slack API call with automatic retry on rate limiting.
         
         Args:
             method: API method name (e.g., "chat.postMessage")
             token: Authentication token to use
             params: Optional parameters for the API call
+            max_retries: Maximum number of retry attempts (default: 5)
+            base_delay: Initial delay in seconds for exponential backoff (default: 1.0)
             
         Returns:
             API response as dict (always contains 'ok' boolean)
+            
+        Retry Behavior:
+            - Retries on HTTP 429 (rate limited) with Retry-After header
+            - Retries on HTTP 500, 502, 503, 504 (server errors)
+            - Retries on Slack API 'ratelimited' error response
+            - Retries on connection errors and timeouts
+            - Uses exponential backoff: delay = base_delay * (2 ^ attempt)
+            - Maximum delay capped at 60 seconds
         """
         url = f"{self.BASE_URL}/{method}"
         headers = self._get_headers(token)
+        max_delay = 60.0
+        last_exception = None
         
-        try:
-            if params:
-                response = requests.post(url, headers=headers, json=params, timeout=30)
-            else:
-                response = requests.get(url, headers=headers, timeout=30)
-            
-            return response.json()
-        except requests.RequestException as e:
-            return {"ok": False, "error": str(e)}
+        for attempt in range(max_retries + 1):
+            try:
+                if params:
+                    response = requests.post(url, headers=headers, json=params, timeout=30)
+                else:
+                    response = requests.get(url, headers=headers, timeout=30)
+                
+                # Check for HTTP 429 rate limiting
+                if response.status_code == 429:
+                    if attempt < max_retries:
+                        retry_after = response.headers.get('Retry-After', base_delay * (2 ** attempt))
+                        delay = min(float(retry_after), max_delay)
+                        print(f"[Slack API Rate Limited] {method}: Retry {attempt + 1}/{max_retries} after {delay:.1f}s...", file=sys.stderr)
+                        time.sleep(delay)
+                        continue
+                
+                # Check for server errors
+                if response.status_code in (500, 502, 503, 504):
+                    if attempt < max_retries:
+                        delay = min(base_delay * (2 ** attempt), max_delay)
+                        print(f"[Slack API Error {response.status_code}] {method}: Retry {attempt + 1}/{max_retries} after {delay:.1f}s...", file=sys.stderr)
+                        time.sleep(delay)
+                        continue
+                
+                result = response.json()
+                
+                # Check for Slack API rate limit error in response body
+                if not result.get('ok') and result.get('error') in ('ratelimited', 'rate_limited'):
+                    if attempt < max_retries:
+                        retry_after = result.get('retry_after', base_delay * (2 ** attempt))
+                        delay = min(float(retry_after), max_delay)
+                        print(f"[Slack API Rate Limited] {method}: Retry {attempt + 1}/{max_retries} after {delay:.1f}s...", file=sys.stderr)
+                        time.sleep(delay)
+                        continue
+                
+                return result
+                
+            except (requests.exceptions.ConnectionError, requests.exceptions.Timeout) as e:
+                last_exception = e
+                if attempt < max_retries:
+                    delay = min(base_delay * (2 ** attempt), max_delay)
+                    print(f"[Connection Error] {method}: Retry {attempt + 1}/{max_retries} after {delay:.1f}s...", file=sys.stderr)
+                    time.sleep(delay)
+                    continue
+                return {"ok": False, "error": f"Connection error after {max_retries} retries: {str(e)}"}
+                
+            except requests.RequestException as e:
+                return {"ok": False, "error": str(e)}
+        
+        # If we've exhausted all retries
+        if last_exception:
+            return {"ok": False, "error": f"Failed after {max_retries} retries: {str(last_exception)}"}
+        return {"ok": False, "error": f"Failed after {max_retries} retries"}
     
     def test_auth(self, token: str) -> Dict:
         """
@@ -773,6 +918,10 @@ class SlackClient:
         
         files = None
         
+        max_retries = 5
+        base_delay = 1.0
+        max_delay = 60.0
+        
         try:
             if file_path:
                 # Upload from file path
@@ -783,23 +932,85 @@ class SlackClient:
                 if not filename:
                     data['filename'] = path.name
                 
-                files = {'file': (path.name, open(path, 'rb'))}
-                response = requests.post(url, headers=headers, data=data, files=files, timeout=60)
+                for attempt in range(max_retries + 1):
+                    try:
+                        files = {'file': (path.name, open(path, 'rb'))}
+                        response = requests.post(url, headers=headers, data=data, files=files, timeout=60)
+                        files['file'][1].close()
+                        
+                        if response.status_code == 429:
+                            if attempt < max_retries:
+                                retry_after = response.headers.get('Retry-After', base_delay * (2 ** attempt))
+                                delay = min(float(retry_after), max_delay)
+                                print(f"[Rate Limited] files.upload: Retry {attempt + 1}/{max_retries} after {delay:.1f}s...", file=sys.stderr)
+                                time.sleep(delay)
+                                continue
+                        
+                        result = response.json()
+                        if not result.get('ok') and result.get('error') in ('ratelimited', 'rate_limited'):
+                            if attempt < max_retries:
+                                retry_after = result.get('retry_after', base_delay * (2 ** attempt))
+                                delay = min(float(retry_after), max_delay)
+                                print(f"[Rate Limited] files.upload: Retry {attempt + 1}/{max_retries} after {delay:.1f}s...", file=sys.stderr)
+                                time.sleep(delay)
+                                continue
+                        
+                        return result
+                    except (requests.exceptions.ConnectionError, requests.exceptions.Timeout) as e:
+                        if files and 'file' in files:
+                            files['file'][1].close()
+                        if attempt < max_retries:
+                            delay = min(base_delay * (2 ** attempt), max_delay)
+                            print(f"[Connection Error] files.upload: Retry {attempt + 1}/{max_retries} after {delay:.1f}s...", file=sys.stderr)
+                            time.sleep(delay)
+                            continue
+                        return {"ok": False, "error": f"Connection error after {max_retries} retries: {str(e)}"}
+                    finally:
+                        if files and 'file' in files:
+                            try:
+                                files['file'][1].close()
+                            except:
+                                pass
+                                
             elif content:
                 # Upload content directly
                 data['content'] = content
-                response = requests.post(url, headers=headers, data=data, timeout=60)
+                for attempt in range(max_retries + 1):
+                    try:
+                        response = requests.post(url, headers=headers, data=data, timeout=60)
+                        
+                        if response.status_code == 429:
+                            if attempt < max_retries:
+                                retry_after = response.headers.get('Retry-After', base_delay * (2 ** attempt))
+                                delay = min(float(retry_after), max_delay)
+                                print(f"[Rate Limited] files.upload: Retry {attempt + 1}/{max_retries} after {delay:.1f}s...", file=sys.stderr)
+                                time.sleep(delay)
+                                continue
+                        
+                        result = response.json()
+                        if not result.get('ok') and result.get('error') in ('ratelimited', 'rate_limited'):
+                            if attempt < max_retries:
+                                retry_after = result.get('retry_after', base_delay * (2 ** attempt))
+                                delay = min(float(retry_after), max_delay)
+                                print(f"[Rate Limited] files.upload: Retry {attempt + 1}/{max_retries} after {delay:.1f}s...", file=sys.stderr)
+                                time.sleep(delay)
+                                continue
+                        
+                        return result
+                    except (requests.exceptions.ConnectionError, requests.exceptions.Timeout) as e:
+                        if attempt < max_retries:
+                            delay = min(base_delay * (2 ** attempt), max_delay)
+                            print(f"[Connection Error] files.upload: Retry {attempt + 1}/{max_retries} after {delay:.1f}s...", file=sys.stderr)
+                            time.sleep(delay)
+                            continue
+                        return {"ok": False, "error": f"Connection error after {max_retries} retries: {str(e)}"}
             else:
                 return {"ok": False, "error": "Either file_path or content must be provided"}
             
-            return response.json()
+            return {"ok": False, "error": f"Failed after {max_retries} retries"}
             
         except requests.RequestException as e:
             return {"ok": False, "error": str(e)}
-        finally:
-            # Close file handle if opened
-            if files and 'file' in files:
-                files['file'][1].close()
     
     def upload_file_v2(self, token: str, channel: str,
                        file_path: Optional[str] = None,
@@ -820,6 +1031,11 @@ class SlackClient:
         
         API Methods: files.getUploadURLExternal, files.completeUploadExternal
         Required Scopes: files:write
+        
+        Retry Behavior:
+            - Retries on HTTP 429 (rate limited) with exponential backoff
+            - Retries on connection errors and timeouts
+            - Maximum 5 retries per step with up to 60s delay
         
         Args:
             token: Authentication token with files:write scope
@@ -845,6 +1061,48 @@ class SlackClient:
                                            filename="script.py",
                                            snippet_type="python")
         """
+        max_retries = 5
+        base_delay = 1.0
+        max_delay = 60.0
+        
+        def _request_with_retry(method: str, url: str, step_name: str, **kwargs) -> requests.Response:
+            """Helper to make requests with retry logic."""
+            for attempt in range(max_retries + 1):
+                try:
+                    if method == 'post':
+                        response = requests.post(url, **kwargs)
+                    else:
+                        response = requests.get(url, **kwargs)
+                    
+                    # Check for rate limiting
+                    if response.status_code == 429:
+                        if attempt < max_retries:
+                            retry_after = response.headers.get('Retry-After', base_delay * (2 ** attempt))
+                            delay = min(float(retry_after), max_delay)
+                            print(f"[Rate Limited] {step_name}: Retry {attempt + 1}/{max_retries} after {delay:.1f}s...", file=sys.stderr)
+                            time.sleep(delay)
+                            continue
+                    
+                    # Check for server errors
+                    if response.status_code in (500, 502, 503, 504):
+                        if attempt < max_retries:
+                            delay = min(base_delay * (2 ** attempt), max_delay)
+                            print(f"[Server Error {response.status_code}] {step_name}: Retry {attempt + 1}/{max_retries} after {delay:.1f}s...", file=sys.stderr)
+                            time.sleep(delay)
+                            continue
+                    
+                    return response
+                    
+                except (requests.exceptions.ConnectionError, requests.exceptions.Timeout) as e:
+                    if attempt < max_retries:
+                        delay = min(base_delay * (2 ** attempt), max_delay)
+                        print(f"[Connection Error] {step_name}: Retry {attempt + 1}/{max_retries} after {delay:.1f}s...", file=sys.stderr)
+                        time.sleep(delay)
+                        continue
+                    raise
+            
+            return response
+        
         try:
             # Determine file content and metadata
             if file_path:
@@ -876,25 +1134,35 @@ class SlackClient:
                 get_url_data["snippet_type"] = snippet_type
             
             headers = {"Authorization": f"Bearer {token}"}
-            url_response = requests.post(
+            url_response = _request_with_retry(
+                'post',
                 f"{self.BASE_URL}/files.getUploadURLExternal",
+                "files.getUploadURLExternal",
                 headers=headers,
                 data=get_url_data,
                 timeout=30
-            ).json()
+            )
             
-            if not url_response.get("ok"):
-                return url_response
+            url_response_json = url_response.json()
             
-            upload_url = url_response.get("upload_url")
-            file_id = url_response.get("file_id")
+            # Check for rate limit in response body
+            if not url_response_json.get("ok"):
+                if url_response_json.get('error') in ('ratelimited', 'rate_limited'):
+                    # Already retried in _request_with_retry, return error
+                    pass
+                return url_response_json
+            
+            upload_url = url_response_json.get("upload_url")
+            file_id = url_response_json.get("file_id")
             
             if not upload_url or not file_id:
                 return {"ok": False, "error": "Failed to get upload URL from Slack"}
             
             # Step 2: Upload file content to the URL
-            upload_response = requests.post(
+            upload_response = _request_with_retry(
+                'post',
                 upload_url,
+                "file upload",
                 data=file_content,
                 headers={"Content-Type": "application/octet-stream"},
                 timeout=120
@@ -917,14 +1185,16 @@ class SlackClient:
             if thread_ts:
                 complete_data["thread_ts"] = thread_ts
             
-            complete_response = requests.post(
+            complete_response = _request_with_retry(
+                'post',
                 f"{self.BASE_URL}/files.completeUploadExternal",
+                "files.completeUploadExternal",
                 headers=headers,
                 data=complete_data,
                 timeout=30
-            ).json()
+            )
             
-            return complete_response
+            return complete_response.json()
             
         except requests.RequestException as e:
             return {"ok": False, "error": f"Request failed: {str(e)}"}
