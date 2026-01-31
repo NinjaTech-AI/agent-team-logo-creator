@@ -364,7 +364,7 @@ Configuration:
     if args.task:
         run_agent(agent, args.task)
     else:
-        # No task specified - run work + monitor in parallel
+        # No task specified - run work + monitor in parallel (monitor only for Nova)
         import multiprocessing
         
         work_task = "Check Slack, sync with team, do your work, update your memory file."
@@ -376,28 +376,45 @@ Configuration:
                 cwd=str(REPO_ROOT),
             )
         
-        print(f"\n🚀 Starting two parallel processes...")
-        print(f"   Process 1: Work mode (Claude agent)")
-        print(f"   Process 2: Monitor mode (Slack watcher)")
-        print(f"   Press Ctrl+C to stop\n")
+        # Only Nova gets the monitor process
+        is_nova = agent["name"].lower() == "nova"
+        
+        if is_nova:
+            print(f"\n🚀 Starting two parallel processes...")
+            print(f"   Process 1: Work mode (Claude agent)")
+            print(f"   Process 2: Monitor mode (Slack watcher)")
+            print(f"   Press Ctrl+C to stop\n")
+        else:
+            print(f"\n🚀 Starting work process...")
+            print(f"   Process 1: Work mode (Claude agent)")
+            print(f"   ℹ️  Monitor mode is only enabled for Nova (PM)")
+            print(f"   Press Ctrl+C to stop\n")
         
         p1 = multiprocessing.Process(target=run_agent, args=(agent, work_task))
-        p2 = multiprocessing.Process(target=run_monitor)
+        
+        processes = [p1]
+        
+        if is_nova:
+            p2 = multiprocessing.Process(target=run_monitor)
+            processes.append(p2)
         
         try:
-            p1.start()
-            p2.start()
+            for p in processes:
+                p.start()
             
-            p1.join()
-            p2.join()
+            for p in processes:
+                p.join()
         except KeyboardInterrupt:
             print("\n\n👋 Stopping processes...")
-            p1.terminate()
-            p2.terminate()
-            p1.join()
-            p2.join()
+            for p in processes:
+                p.terminate()
+            for p in processes:
+                p.join()
         
-        print(f"\n✅ Both processes completed")
+        if is_nova:
+            print(f"\n✅ Both processes completed")
+        else:
+            print(f"\n✅ Work process completed")
 
 
 if __name__ == "__main__":

@@ -9,4 +9,3 @@
 - [ ] Complete onboarding checklist
 
 ## Notes
-
