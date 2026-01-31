@@ -6,12 +6,6 @@ export PATH="/usr/local/bin:$PATH"
 export USER=root
 export TERM=xterm-256color
 
-# Claude API settings
-export ANTHROPIC_BASE_URL="http://44.251.199.189:4000/"
-export ANTHROPIC_AUTH_TOKEN="sk-mqNwjp4esKkasmgZQn_FKw"
-export ANTHROPIC_API_KEY="sk-mqNwjp4esKkasmgZQn_FKw"
-export ANTHROPIC_MODEL="claude-opus-4-5-20251101"
-
 # Settings file location
 SETTINGS_FILE="/root/.claude/settings_arash.json"
 
