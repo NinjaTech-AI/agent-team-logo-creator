@@ -4,6 +4,37 @@
 
 This document defines the communication standards and protocols for agent interaction within the #logo-creator Slack channel using the `slack_interface.py` CLI tool.
 
+## 🚨 CRITICAL: Workflow Dependencies
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                     PROJECT INITIALIZATION PROTOCOL                      │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                          │
+│   STEP 1: Nova (PM) Initializes Project                                 │
+│   ─────────────────────────────────────                                 │
+│   • Nova completes onboarding                                           │
+│   • Nova interviews Human (Babak/Arash) via Slack                       │
+│   • Nova writes PRD → agent-docs/PRD.md                                 │
+│   • Nova creates GitHub Issues for all tasks                            │
+│   • Nova assigns issues to agents                                       │
+│   • Nova runs orchestrator                                              │
+│                                                                          │
+│   STEP 2: Other Agents Start Work                                       │
+│   ───────────────────────────────                                       │
+│   • Pixel, Bolt, Scout complete onboarding                              │
+│   • Check for PRD: cat agent-docs/PRD.md                                │
+│   • Check for assigned issues: gh issue list --assignee @me             │
+│   • If no PRD/issues → ask Nova in Slack and WAIT                       │
+│   • Run orchestrator: python orchestrator.py                            │
+│                                                                          │
+│   WAKE UP INSTRUCTION                                                    │
+│   ═══════════════════                                                    │
+│   When any agent receives "WAKE UP" → Run: python orchestrator.py       │
+│                                                                          │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
 ## Slack Interface Tool
 
 All agents communicate via the `slack_interface.py` CLI tool. See [SLACK_INTERFACE.md](SLACK_INTERFACE.md) for complete documentation.
@@ -40,16 +71,63 @@ python slack_interface.py upload design.png --title "Design Mockup"
 
 ## Agent Identities
 
-| Agent | Slack Handle | Emoji | Color |
-|-------|--------------|-------|-------|
-| Nova | `@nova` | 🌟 | Purple |
-| Pixel | `@pixel` | 🎨 | Pink |
-| Bolt | `@bolt` | ⚡ | Yellow |
-| Scout | `@scout` | 🔍 | Green |
-| Babak | `@babak` | 👤 | Blue |
-| Arash | `@arash` | 👤 | Blue |
+| Agent | Slack Handle | Emoji | Color | Role |
+|-------|--------------|-------|-------|------|
+| Nova | `@nova` | 🌟 | Purple | PM - Initializes project, creates PRD & issues |
+| Pixel | `@pixel` | 🎨 | Pink | UX - Waits for PRD & issues before designing |
+| Bolt | `@bolt` | ⚡ | Yellow | Dev - Waits for PRD & issues before coding |
+| Scout | `@scout` | 🔍 | Green | QA - Waits for PRD & issues before testing |
+| Babak | `@babak` | 👤 | Blue | Human Product Owner |
+| Arash | `@arash` | 👤 | Blue | Human Product Owner |
 
 ## Message Formats
+
+### Project Initialization Messages
+
+#### Nova's PRD Interview Start
+```bash
+python slack_interface.py say "🌟 **Nova - PRD Interview**
+
+Hi @babak @arash! I'd like to understand your vision for this project.
+
+**Question:** What problem are we solving with this logo creator?
+
+**Context:** This will help me define the core value proposition in the PRD.
+
+Take your time - I want to make sure we capture your vision accurately!"
+```
+
+#### Nova's Issue Creation Announcement
+```bash
+python slack_interface.py say "🌟 **GitHub Issues Created**
+
+I've created the following issues based on the approved PRD:
+
+**Design Tasks (@pixel):**
+- #1: Create homepage mockup
+- #2: Design logo preview component
+
+**Development Tasks (@bolt):**
+- #3: Implement logo generation API
+- #4: Build frontend UI
+
+**QA Tasks (@scout):**
+- #5: Create test plan
+- #6: Execute integration tests
+
+@pixel @bolt @scout - Please check your assigned issues and begin work!"
+```
+
+#### Non-Nova Agent Waiting for Tasks
+```bash
+python slack_interface.py say "🎨 **Pixel - Awaiting Tasks**
+
+@nova I've completed onboarding but don't see:
+- PRD document (agent-docs/PRD.md)
+- GitHub issues assigned to me
+
+Could you please create the PRD and assign design tasks? I'm ready to start!"
+```
 
 ### Sync Meeting Messages
 
@@ -270,3 +348,15 @@ python slack_interface.py say "👤 **Babak/Arash Input Needed**
 - **Recommendation**: [Agent's suggestion]
 - **Deadline**: [When decision is needed]"
 ```
+
+## Running the Orchestrator
+
+After completing onboarding, all agents should run:
+
+```bash
+python orchestrator.py
+```
+
+This starts:
+- **Nova**: Work process + Monitor process (watches for Slack mentions)
+- **Other agents**: Work process only

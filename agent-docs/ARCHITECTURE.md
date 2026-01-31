@@ -4,6 +4,55 @@
 
 The Agent Team Logo Creator is a multi-agent collaborative system where AI agents work together to build a logo creation application. The system is designed around asynchronous collaboration with periodic synchronization.
 
+## 🚨 CRITICAL: Workflow Dependencies
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                         PROJECT INITIALIZATION FLOW                          │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│   PHASE 1: Nova (PM) Initializes Project                                    │
+│   ══════════════════════════════════════                                    │
+│   1. Nova completes onboarding                                              │
+│   2. Nova interviews Human (Babak/Arash) via Slack                          │
+│   3. Nova writes PRD document → agent-docs/PRD.md                           │
+│   4. Nova creates GitHub Issues for all tasks                               │
+│   5. Nova assigns issues to appropriate agents                              │
+│                                                                              │
+│   PHASE 2: Other Agents Start Work                                          │
+│   ════════════════════════════════════                                      │
+│   • Pixel, Bolt, Scout WAIT for:                                            │
+│     - PRD document to exist (agent-docs/PRD.md)                             │
+│     - GitHub Issues assigned to them                                        │
+│   • Only then do they begin their work                                      │
+│                                                                              │
+│   WAKE UP INSTRUCTION                                                        │
+│   ═══════════════════                                                        │
+│   When any agent receives "WAKE UP" instruction:                            │
+│   → Run: python orchestrator.py                                             │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Agent Startup Sequence
+
+```
+┌─────────────┐     ┌─────────────┐     ┌─────────────┐     ┌─────────────┐
+│    NOVA     │     │    PIXEL    │     │    BOLT     │     │    SCOUT    │
+│     PM      │     │     UX      │     │     Dev     │     │     QA      │
+├─────────────┤     ├─────────────┤     ├─────────────┤     ├─────────────┤
+│ 1. Onboard  │     │ 1. Onboard  │     │ 1. Onboard  │     │ 1. Onboard  │
+│ 2. Interview│     │ 2. Wait for │     │ 2. Wait for │     │ 2. Wait for │
+│    Human    │     │    PRD +    │     │    PRD +    │     │    PRD +    │
+│ 3. Write PRD│     │    Issues   │     │    Issues   │     │    Issues   │
+│ 4. Create   │────▶│ 3. Check    │────▶│ 3. Check    │────▶│ 3. Check    │
+│    Issues   │     │    assigned │     │    assigned │     │    assigned │
+│ 5. Run      │     │    tasks    │     │    tasks    │     │    tasks    │
+│ orchestrator│     │ 4. Run      │     │ 4. Run      │     │ 4. Run      │
+│             │     │ orchestrator│     │ orchestrator│     │ orchestrator│
+└─────────────┘     └─────────────┘     └─────────────┘     └─────────────┘
+```
+
 ## Core Components
 
 ### 1. Agent Layer
@@ -11,17 +60,18 @@ The Agent Team Logo Creator is a multi-agent collaborative system where AI agent
 Four specialized agents, each with distinct responsibilities:
 
 ```
-┌────────────────────────────────────────────────────────────────────┐
-│                          AGENT LAYER                                │
-├─────────────┬─────────────┬─────────────┬─────────────────────────┤
-│    NOVA     │    PIXEL    │    BOLT     │         SCOUT           │
-│     PM      │     UX      │     Dev     │          QA             │
-├─────────────┼─────────────┼─────────────┼─────────────────────────┤
-│ • Planning  │ • Wireframes│ • Frontend  │ • Test Plans            │
-│ • Issues    │ • Mockups   │ • Backend   │ • Bug Reports           │
-│ • Reviews   │ • UX Flows  │ • APIs      │ • Validation            │
-│ • Coord.    │ • Assets    │ • Deploy    │ • Regression            │
-└─────────────┴─────────────┴─────────────┴─────────────────────────┘
+┌────────────────────────────────────────────────────────────────────────┐
+│                          AGENT LAYER                                    │
+├─────────────┬─────────────┬─────────────┬─────────────────────────────┤
+│    NOVA     │    PIXEL    │    BOLT     │         SCOUT               │
+│     PM      │     UX      │     Dev     │          QA                 │
+├─────────────┼─────────────┼─────────────┼─────────────────────────────┤
+│ • Planning  │ • Wireframes│ • Frontend  │ • Test Plans                │
+│ • PRD       │ • Mockups   │ • Backend   │ • Bug Reports               │
+│ • Issues    │ • UX Flows  │ • APIs      │ • Validation                │
+│ • Reviews   │ • Assets    │ • Deploy    │ • Regression                │
+│ • Coord.    │             │             │                             │
+└─────────────┴─────────────┴─────────────┴─────────────────────────────┘
 ```
 
 ### 2. Communication Layer
@@ -29,27 +79,28 @@ Four specialized agents, each with distinct responsibilities:
 All inter-agent and human-agent communication flows through Slack using the `slack_interface.py` CLI tool:
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                    SLACK: #logo-creator                          │
-│                                                                  │
-│  Message Types:                                                  │
-│  • @nova - PM directives, task assignments                      │
-│  • @pixel - Design updates, mockup shares                       │
-│  • @bolt - Code updates, technical questions                    │
-│  • @scout - Test results, bug reports                           │
-│  • @human - Direction, feedback, approvals                      │
-│                                                                  │
-│  Threads: Used for focused discussions on specific topics       │
-└─────────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────┐
+│                    SLACK: #logo-creator                              │
+│                                                                      │
+│  Message Types:                                                      │
+│  • @nova - PM directives, task assignments                          │
+│  • @pixel - Design updates, mockup shares                           │
+│  • @bolt - Code updates, technical questions                        │
+│  • @scout - Test results, bug reports                               │
+│  • @babak @arash - Human direction, feedback, approvals             │
+│                                                                      │
+│  Threads: Used for focused discussions on specific topics           │
+└─────────────────────────────────────────────────────────────────────┘
 ```
 
 ### 3. Persistence Layer
 
 #### GitHub Repository
 - Source code
-- Issues and project tracking
+- Issues and project tracking (PRIMARY TASK SOURCE)
 - Pull requests and code reviews
 - Documentation
+- PRD document (agent-docs/PRD.md)
 
 #### Memory Files
 - Agent-specific context persistence
@@ -57,16 +108,16 @@ All inter-agent and human-agent communication flows through Slack using the `sla
 - Cross-session continuity
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                      PERSISTENCE LAYER                           │
-├────────────────────────────┬────────────────────────────────────┤
-│         GITHUB             │            MEMORY FILES            │
-├────────────────────────────┼────────────────────────────────────┤
-│ • Code commits             │ • nova_memory.md                   │
-│ • Issues/PRs               │ • pixel_memory.md                  │
-│ • Reviews/Comments         │ • bolt_memory.md                   │
-│ • Project boards           │ • scout_memory.md                  │
-└────────────────────────────┴────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────┐
+│                      PERSISTENCE LAYER                               │
+├────────────────────────────────┬────────────────────────────────────┤
+│         GITHUB                 │            MEMORY FILES            │
+├────────────────────────────────┼────────────────────────────────────┤
+│ • Code commits                 │ • nova_memory.md                   │
+│ • Issues/PRs (TASK SOURCE)     │ • pixel_memory.md                  │
+│ • Reviews/Comments             │ • bolt_memory.md                   │
+│ • PRD.md (Requirements)        │ • scout_memory.md                  │
+└────────────────────────────────┴────────────────────────────────────┘
 ```
 
 ### 4. Orchestration Layer
@@ -74,23 +125,69 @@ All inter-agent and human-agent communication flows through Slack using the `sla
 The orchestrator manages the agent lifecycle:
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                      ORCHESTRATOR                                │
-│                                                                  │
-│  ┌─────────────┐    ┌─────────────┐    ┌─────────────┐         │
-│  │  Scheduler  │───▶│ Sync Manager│───▶│   Agents    │         │
-│  │  (Hourly)   │    │             │    │             │         │
-│  └─────────────┘    └─────────────┘    └─────────────┘         │
-│                                                                  │
-│  Responsibilities:                                               │
-│  • Trigger hourly syncs                                         │
-│  • Coordinate agent wake-up sequence                            │
-│  • Manage sync meeting flow                                     │
-│  • Handle failures and retries                                  │
-└─────────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────┐
+│                      ORCHESTRATOR                                    │
+│                                                                      │
+│  ┌─────────────┐    ┌─────────────┐    ┌─────────────┐             │
+│  │  Scheduler  │───▶│ Sync Manager│───▶│   Agents    │             │
+│  │  (Hourly)   │    │             │    │             │             │
+│  └─────────────┘    └─────────────┘    └─────────────┘             │
+│                                                                      │
+│  Responsibilities:                                                   │
+│  • Trigger hourly syncs                                             │
+│  • Coordinate agent wake-up sequence                                │
+│  • Manage sync meeting flow                                         │
+│  • Handle failures and retries                                      │
+│                                                                      │
+│  NOTE: Monitor process only runs for Nova (PM)                      │
+└─────────────────────────────────────────────────────────────────────┘
 ```
 
 ## Data Flow
+
+### Project Initialization Flow
+
+```
+┌──────────────────────────────────────────────────────────────────────┐
+│                    PROJECT INITIALIZATION                             │
+├──────────────────────────────────────────────────────────────────────┤
+│                                                                       │
+│  Human (Babak/Arash)                                                 │
+│       │                                                               │
+│       │ "WAKE UP Nova"                                               │
+│       ▼                                                               │
+│  ┌─────────┐                                                         │
+│  │  NOVA   │──── 1. Complete onboarding                              │
+│  │   PM    │──── 2. Interview Human via Slack                        │
+│  └────┬────┘──── 3. Write PRD (agent-docs/PRD.md)                    │
+│       │     ──── 4. Create GitHub Issues                             │
+│       │     ──── 5. Assign issues to agents                          │
+│       │     ──── 6. Run orchestrator                                 │
+│       │                                                               │
+│       ▼                                                               │
+│  ┌─────────────────────────────────────────────────────────────┐    │
+│  │                    GitHub Issues Created                      │    │
+│  │  • Design tasks → assigned to @pixel                         │    │
+│  │  • Dev tasks → assigned to @bolt                             │    │
+│  │  • QA tasks → assigned to @scout                             │    │
+│  └─────────────────────────────────────────────────────────────┘    │
+│       │                                                               │
+│       ▼                                                               │
+│  Human: "WAKE UP Pixel/Bolt/Scout"                                   │
+│       │                                                               │
+│       ▼                                                               │
+│  ┌─────────┐  ┌─────────┐  ┌─────────┐                              │
+│  │  PIXEL  │  │  BOLT   │  │  SCOUT  │                              │
+│  │   UX    │  │   Dev   │  │   QA    │                              │
+│  └────┬────┘  └────┬────┘  └────┬────┘                              │
+│       │            │            │                                     │
+│       └────────────┴────────────┘                                    │
+│                    │                                                  │
+│                    ▼                                                  │
+│       Check PRD + GitHub Issues → Start Work                         │
+│                                                                       │
+└──────────────────────────────────────────────────────────────────────┘
+```
 
 ### Hourly Sync Cycle
 
@@ -159,10 +256,7 @@ python slack_interface.py read
 python slack_interface.py read -l 50  # Last 50 messages
 
 # Send messages as an agent
-python slack_interface.py say -a nova "Sprint planning at 2pm"
-python slack_interface.py say -a pixel "Design mockups ready for review"
-python slack_interface.py say -a bolt "PR submitted for review"
-python slack_interface.py say -a scout "All tests passing"
+python slack_interface.py say "Sprint planning at 2pm"
 
 # Configuration
 python slack_interface.py config --set-channel "#logo-creator"
@@ -176,35 +270,46 @@ python slack_interface.py history "#channel"  # Get specific channel history
 
 See [SLACK_INTERFACE.md](SLACK_INTERFACE.md) for complete documentation.
 
-### Image Generation Usage (Pixel)
-
-```
-# Key capabilities via Image Generation
-- Generate high-fidelity UI mockups
-- Create wireframes and layouts
-- Design visual concepts
-- Produce component designs
-```
-
-### Internet Search Usage
-
-```
-# Key capabilities via Internet Search
-- Research best practices
-- Find documentation
-- Competitor analysis
-- Look up error solutions
-```
-
 ### GitHub Integration (via CLI)
 
 ```bash
 # Key capabilities via GitHub CLI
 gh issue create --title "Bug: ..." --body "..."
+gh issue list --assignee @me
 gh pr create --title "Feature: ..." --body "..."
 gh pr review --approve
 git commit -m "feat: ..."
 git push origin main
+```
+
+## Running the Orchestrator
+
+### When to Run
+
+**Run the orchestrator after completing onboarding:**
+
+```bash
+python orchestrator.py
+```
+
+### What It Does
+
+| Agent | Processes Started |
+|-------|-------------------|
+| Nova | Work + Monitor (both processes) |
+| Pixel | Work only |
+| Bolt | Work only |
+| Scout | Work only |
+
+**Note:** The monitor process (Slack watcher) only runs for Nova because Nova is the PM who needs to respond to team mentions and coordinate.
+
+### Command Options
+
+```bash
+python orchestrator.py                    # Run work + monitor (Nova) or work only (others)
+python orchestrator.py --task "Do X"      # Run single task
+python orchestrator.py --list             # List all agents
+python orchestrator.py --test             # Run capability tests
 ```
 
 ## Security Considerations

@@ -4,6 +4,39 @@
 
 When an agent wakes up, it must complete the onboarding process before starting work. This ensures all tools are configured and the agent understands its environment.
 
+## 🚨 CRITICAL: Workflow Dependencies
+
+**ALL AGENTS MUST UNDERSTAND THE WORKFLOW:**
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                        AGENT WORKFLOW DEPENDENCIES                       │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                          │
+│   1. NOVA (PM) starts first                                             │
+│      ├── Conducts PRD interview with Human (Babak/Arash)                │
+│      ├── Writes PRD document (agent-docs/PRD.md)                        │
+│      └── Creates GitHub Issues for all tasks                            │
+│                                                                          │
+│   2. OTHER AGENTS (Pixel, Bolt, Scout) WAIT for:                        │
+│      ├── PRD document to exist (agent-docs/PRD.md)                      │
+│      └── GitHub Issues to be assigned to them                           │
+│                                                                          │
+│   3. When agents receive "WAKE UP" instruction:                         │
+│      └── Run: python orchestrator.py                                    │
+│                                                                          │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+### Agent-Specific First Actions
+
+| Agent | First Action After Onboarding |
+|-------|-------------------------------|
+| **Nova** | Interview Human → Write PRD → Create GitHub Issues |
+| **Pixel** | Wait for PRD + GitHub Issues → Check assigned design tasks |
+| **Bolt** | Wait for PRD + GitHub Issues → Check assigned dev tasks |
+| **Scout** | Wait for PRD + GitHub Issues → Check assigned QA tasks |
+
 ## ⚠️ CRITICAL: Never Assume - Always Ask
 
 **The most important rule for agents: DO NOT ASSUME ANYTHING.**
@@ -22,33 +55,6 @@ The `ask` tool is your primary way to get information from users. Use it wheneve
 - You need to make a decision that affects the user
 - Information is missing
 - You need confirmation before proceeding
-
-**Example - Asking for clarification:**
-```
-I need some information before proceeding:
-
-1. What is the target channel for Slack messages?
-2. Which agent identity should I use (nova, pixel, bolt, scout)?
-3. Are there any specific requirements I should know about?
-
-Please provide these details so I can configure correctly.
-```
-
-**Example - Confirming before action:**
-```
-I'm about to send a message to #general as Nova. 
-
-Should I proceed? (yes/no)
-```
-
-**Example - Requesting missing information:**
-```
-I noticed the configuration file is missing the following required fields:
-- default_channel
-- default_agent
-
-Could you please provide these values?
-```
 
 ## Onboarding Steps
 
@@ -138,6 +144,35 @@ cat memory/bolt_memory.md      # For Bolt
 cat memory/scout_memory.md     # For Scout
 ```
 
+### Step 6: Check Prerequisites (Non-Nova Agents)
+
+**If you are NOT Nova**, check that prerequisites exist before starting work:
+
+```bash
+# Check if PRD exists
+cat agent-docs/PRD.md
+
+# Check for assigned GitHub issues
+gh issue list --assignee @me
+```
+
+**If PRD doesn't exist or no issues are assigned:**
+- Post in Slack asking Nova to create tasks
+- Wait for Nova to complete PRD and issue creation
+- Do NOT start work without assigned tasks
+
+### Step 7: Run Orchestrator (Final Step)
+
+**After completing all onboarding steps, start the orchestrator:**
+
+```bash
+python orchestrator.py
+```
+
+This will:
+- Start the work process (Claude agent)
+- For Nova only: Also start the monitor process (Slack watcher)
+
 ## Configuration Files
 
 ### Slack Config (`~/.agent_settings.json`)
@@ -218,6 +253,17 @@ gh auth status
 # View current repo
 gh repo view
 ```
+
+### No PRD or GitHub Issues (Non-Nova Agents)
+
+If you're Pixel, Bolt, or Scout and there's no PRD or assigned issues:
+
+```bash
+# Post to Slack
+python slack_interface.py say "🔔 @nova I've completed onboarding but don't see any assigned GitHub issues. Could you please create tasks for me?"
+```
+
+Then wait for Nova to respond before starting work.
 
 ## Remember: Always Ask!
 
