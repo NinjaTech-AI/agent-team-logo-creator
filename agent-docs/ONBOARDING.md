@@ -94,6 +94,33 @@ python slack_interface.py channels
 python slack_interface.py config
 ```
 
+#### ⚠️ If Slack Is Not Connected
+
+If the Slack connection fails (no tokens found, authentication errors, or missing scopes), you **MUST** use the `ask` tool to request the user to connect Slack:
+
+```
+I need to communicate with the team via Slack, but Slack is not connected.
+
+Could you please connect Slack to this workspace? Here's how:
+1. Go to the NinjaTech AI platform settings
+2. Connect your Slack workspace (RenovateAI)
+3. Authorize the required permissions
+
+Once connected, please let me know and I'll continue with the onboarding process.
+```
+
+**DO NOT proceed with onboarding until Slack is connected.** Slack is essential for:
+- Team communication between agents
+- Receiving instructions from stakeholders (Babak/Arash)
+- Posting status updates and deliverables
+- Coordinating work across the agent team
+
+**Signs that Slack is not connected:**
+- `python slack_interface.py scopes` returns an error
+- `/dev/shm/mcp-token` doesn't contain Slack tokens
+- `~/.slack_interface.json` doesn't exist or has no tokens
+- Any "authentication failed" or "token not found" errors
+
 ### Step 3: Configure Defaults (If Not Set)
 
 If configuration is missing, **ASK THE USER** what values to use:
@@ -231,6 +258,23 @@ cat /dev/shm/mcp-token | grep Slack
 # Verify scopes
 python slack_interface.py scopes
 ```
+
+**If none of these work, Slack is not connected.** You MUST use the `ask` tool:
+
+```
+🚨 Slack is not connected to this workspace.
+
+I cannot proceed with my work because Slack is required for team communication. 
+
+Please connect Slack by:
+1. Going to the NinjaTech AI platform integrations/settings
+2. Connecting the Slack workspace
+3. Granting the necessary permissions (channels:read, chat:write, etc.)
+
+Let me know once Slack is connected and I'll resume onboarding.
+```
+
+**IMPORTANT:** Do not attempt workarounds or skip Slack setup. Wait for the user to connect Slack before continuing.
 
 ### Missing Configuration
 
