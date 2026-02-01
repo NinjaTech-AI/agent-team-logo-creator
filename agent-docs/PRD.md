@@ -139,7 +139,7 @@ An AI-powered web application that generates professional logos from simple text
 |------------|---------|
 | Python | Backend language |
 | FastAPI | REST API framework |
-| AI Image API | Logo generation (e.g., OpenAI DALL-E, Replicate) |
+| GPT Image Generator 1.5 | Logo generation (stakeholder confirmed) |
 
 ### 5.3 Infrastructure
 
@@ -229,7 +229,7 @@ An AI-powered web application that generates professional logos from simple text
 
 ## 8. Open Questions for Stakeholders
 
-1. **AI Service:** Which AI image generation service should we use? (OpenAI DALL-E, Replicate, Stability AI, other?)
+1. ~~**AI Service:** Which AI image generation service should we use?~~ **RESOLVED: GPT Image Generator 1.5** (confirmed by stakeholder 2026-02-01)
 
 2. **Hosting Platform:** Any preferences for deployment? (Vercel, Railway, Render, other?)
 
