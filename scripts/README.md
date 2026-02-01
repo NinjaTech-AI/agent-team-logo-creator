@@ -10,7 +10,7 @@ Resets the project to a clean state after agents have worked on it.
 1. **Removes agent-created files** - Deletes any files/directories not in the protected whitelist
 2. **Cleans agent-docs** - Removes any files except the core spec files
 3. **Resets memory files** - Restores all memory files to clean templates
-4. **Closes GitHub issues** - Closes all open issues with a reset comment
+4. **Deletes GitHub issues** - Permanently deletes all issues (open and closed)
 5. **Commits and pushes** - Commits all changes and pushes to GitHub
 
 ### Protected files (never deleted):
@@ -77,13 +77,13 @@ Project root: /workspace/agent-team-logo-creator
   ✓ Reset 4 memory files
 
 ============================================================
-  Step 4: Closing GitHub issues
+  Step 4: Deleting GitHub issues
 ============================================================
 
-  Closing issue #18: Design: Create UI Mockups for Logo Creator
-  Closing issue #19: Frontend: Build React UI Components
+  Deleting issue #18: Design: Create UI Mockups for Logo Creator
+  Deleting issue #19: Frontend: Build React UI Components
 
-  ✓ Closed 2 issues
+  ✓ Deleted 2 issues
 
 ============================================================
   Step 5: Committing and pushing changes

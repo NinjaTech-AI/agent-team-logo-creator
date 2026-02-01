@@ -248,15 +248,15 @@ def reset_memory_files(dry_run=False):
     
     return reset_count
 
-def close_github_issues(dry_run=False):
-    """Close all open GitHub issues."""
-    print("  Fetching open issues...")
+def delete_github_issues(dry_run=False):
+    """Delete all GitHub issues (open and closed)."""
+    print("  Fetching all issues...")
     
-    # Get list of open issues
-    output = run_command("gh issue list --state open --json number,title --limit 100", check=False)
+    # Get list of all issues (open and closed)
+    output = run_command("gh issue list --state all --json number,title --limit 100", check=False)
     
     if not output:
-        print("  No open issues found or gh CLI not available")
+        print("  No issues found or gh CLI not available")
         return 0
     
     import json
@@ -267,23 +267,23 @@ def close_github_issues(dry_run=False):
         return 0
     
     if not issues:
-        print("  No open issues to close")
+        print("  No issues to delete")
         return 0
     
-    closed_count = 0
+    deleted_count = 0
     for issue in issues:
         number = issue['number']
         title = issue['title'][:50]
-        print_action(f"Closing issue #{number}", title, dry_run)
+        print_action(f"Deleting issue #{number}", title, dry_run)
         
         if not dry_run:
             run_command(
-                f'gh issue close {number} --comment "Closing - project reset for clean start"',
+                f'gh issue delete {number} --yes',
                 check=False
             )
-        closed_count += 1
+        deleted_count += 1
     
-    return closed_count
+    return deleted_count
 
 def git_commit_and_push(dry_run=False):
     """Commit and push all changes."""
@@ -369,13 +369,13 @@ def main():
     reset_count = reset_memory_files(args.dry_run)
     print(f"\n  ✓ Reset {reset_count} memory files")
     
-    # Step 4: Close GitHub issues
+    # Step 4: Delete GitHub issues
     if not args.skip_issues:
-        print_header("Step 4: Closing GitHub issues")
-        closed = close_github_issues(args.dry_run)
-        print(f"\n  ✓ Closed {closed} issues")
+        print_header("Step 4: Deleting GitHub issues")
+        deleted = delete_github_issues(args.dry_run)
+        print(f"\n  ✓ Deleted {deleted} issues")
     else:
-        print_header("Step 4: Closing GitHub issues (SKIPPED)")
+        print_header("Step 4: Deleting GitHub issues (SKIPPED)")
     
     # Step 5: Git commit and push
     if not args.skip_git:
