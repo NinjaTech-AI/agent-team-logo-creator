@@ -50,7 +50,6 @@ PROTECTED_FILES = {
     'slack_interface.py',
     'agents_config.py',
     'requirements.txt',
-    'WAKE_UP_PROTOCOL.md',
 }
 
 # Files in agent-docs that should be preserved
