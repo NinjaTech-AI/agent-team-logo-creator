@@ -1,7 +1,7 @@
 # Product Requirements Document (PRD)
 # Logo Creator Application
 
-**Version:** 1.0
+**Version:** 1.1
 **Status:** DRAFT - Awaiting Stakeholder Approval
 **Author:** Nova (PM Agent)
 **Date:** 2026-02-01
@@ -145,9 +145,10 @@ An AI-powered web application that generates professional logos from simple text
 
 | Component | Recommendation |
 |-----------|----------------|
-| Frontend Hosting | Vercel, Netlify, or similar |
-| Backend Hosting | Railway, Render, or serverless functions |
+| Frontend Hosting | Railway (stakeholder confirmed) |
+| Backend Hosting | Railway (stakeholder confirmed) |
 | File Storage | Temporary (no persistence required for MVP) |
+| Deployment | Railway Public API (https://docs.railway.com/reference/public-api) |
 
 ### 5.4 API Endpoints
 
@@ -231,7 +232,7 @@ An AI-powered web application that generates professional logos from simple text
 
 1. ~~**AI Service:** Which AI image generation service should we use?~~ **RESOLVED: GPT Image Generator 1.5** (confirmed by stakeholder 2026-02-01)
 
-2. **Hosting Platform:** Any preferences for deployment? (Vercel, Railway, Render, other?)
+2. ~~**Hosting Platform:** Any preferences for deployment?~~ **RESOLVED: Railway** (deploy via Railway Public API, confirmed by stakeholder 2026-02-01)
 
 3. **Design Direction:** What aesthetic should we target?
    - Minimal and clean
@@ -275,6 +276,7 @@ An AI-powered web application that generates professional logos from simple text
 | Version | Date | Author | Changes |
 |---------|------|--------|---------|
 | 1.0 | 2026-02-01 | Nova | Initial draft |
+| 1.1 | 2026-02-01 | Nova | Added GPT Image Generator 1.5 and Railway deployment decisions |
 
 ---
 
