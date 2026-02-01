@@ -420,7 +420,7 @@ Now respond to all {len(pending_messages)} message(s) by posting to Slack."""
     try:
         # Let Claude handle all responses
         result = subprocess.run(
-            [str(REPO_ROOT / "claude-wrapper.sh"), "-p", prompt],
+            [str(REPO_ROOT / "claude-wrapper.sh"), "-c", "-p", prompt],
             cwd=str(REPO_ROOT),
             capture_output=True,
             text=True,
