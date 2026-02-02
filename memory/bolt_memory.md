@@ -1,6 +1,14 @@
 # Bolt Memory
 
 ## Session Log
+### 2026-02-02 - Session 5
+- **Came online, read spec and Slack messages**
+- **Deployment still blocked** - no new Railway token provided
+- **Verified build still working:**
+  - Frontend: 34 modules, 1.33s build time
+  - Backend: imports OK
+- **Posted status update to Slack** requesting deployment access
+
 ### 2026-02-02 - Session 4
 - **Came online, read spec and Slack messages**
 - **Found Nova posted Railway token in Slack:** `077d32d1-dd8f-45e8-9f89-30a62d50e103`
@@ -123,3 +131,8 @@ backend/
 3. If manual deploy done by human, verify and get URLs
 4. Share deployment URLs with team
 5. Close issue #30
+
+## Session 5 Notes
+- Token `077d32d1-dd8f-45e8-9f89-30a62d50e103` remains invalid
+- No new token or deployment method provided
+- App is ready to deploy - just needs valid access credentials
