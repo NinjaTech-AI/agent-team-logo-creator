@@ -119,8 +119,8 @@ Return ONLY the improved prompt text, no explanations."""
         preview_response = client.images.generate(
             model="gpt-image-1",
             prompt=improved_prompt,
-            size="512x512",  # Smaller size for preview
-            quality="standard",
+            size="1024x1024",  # Standard size for preview
+            quality="low",  # Use 'low' instead of 'standard'
             n=1,
         )
         
@@ -141,7 +141,7 @@ Return ONLY the improved prompt text, no explanations."""
                     model="dall-e-3",
                     prompt=improved_prompt,
                     size="1024x1024",
-                    quality="standard",
+                    quality="standard",  # DALL-E 3 supports "standard" and "hd"
                     n=1,
                 )
                 preview_url = preview_response.data[0].url
@@ -207,14 +207,18 @@ Requirements:
         valid_sizes = ["1024x1024", "1792x1024", "1024x1792"]
         size = request.size if request.size in valid_sizes else "1024x1024"
         
-        # #35: Preview mode uses smaller size and standard quality
+        # #35: Preview mode uses smaller size and low quality
         if request.preview_mode:
             size = "1024x1024"
-            quality = "standard"
+            quality = "low"
         else:
-            quality = request.resolution if request.resolution in ["standard", "high", "hd"] else "high"
-            if quality == "high":
-                quality = "hd"  # Map to OpenAI's quality parameter
+            # Map quality values to OpenAI's accepted values: low, medium, high, auto
+            quality_map = {
+                "standard": "medium",
+                "high": "high",
+                "hd": "high"
+            }
+            quality = quality_map.get(request.resolution, "high")
 
         # Generate image using OpenAI API (GPT Image Generator 1.5 / DALL-E)
         client = get_openai_client()
@@ -241,11 +245,13 @@ Requirements:
             try:
                 # DALL-E 3 only supports 1024x1024, 1792x1024, 1024x1792
                 dalle_size = size if size in ["1024x1024", "1792x1024", "1024x1792"] else "1024x1024"
+                # DALL-E 3 only supports "standard" and "hd" quality
+                dalle_quality = "hd" if quality in ["high", "hd"] else "standard"
                 response = client.images.generate(
                     model="dall-e-3",
                     prompt=prompt,
                     size=dalle_size,
-                    quality=quality if quality in ["standard", "hd"] else "hd",
+                    quality=dalle_quality,
                     n=1,
                 )
                 logo_url = response.data[0].url
