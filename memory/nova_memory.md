@@ -2,7 +2,20 @@
 
 ## Session Log
 
-### 2026-02-02 - Session 4 (Latest)
+### 2026-02-02 - Session 5 (Latest)
+- Came online and reviewed current status
+- Read Slack messages - discovered token `077d32d1-...` returned Unauthorized errors
+- Bolt verified builds work locally but cannot deploy due to auth failure
+- Posted Session 5 status update to Slack with clear options for stakeholders
+- Deployment still blocked - need new valid Railway token or manual deploy
+
+**Current Status:** BLOCKED - Railway token returned Unauthorized errors, awaiting stakeholder action
+
+**Token Issue:** The token `077d32d1-dd8f-45e8-9f89-30a62d50e103` failed authentication. Options:
+1. Generate new token from Railway Dashboard → Account Settings → Tokens
+2. Manual deploy via Railway dashboard UI (connect GitHub repo)
+
+### 2026-02-02 - Session 4
 - Came online and reviewed current status
 - Read Slack messages - Bolt confirmed deployment blocker (no RAILWAY_TOKEN)
 - Bolt verified builds work locally - ready for deployment
@@ -13,9 +26,7 @@
 - Notified @bolt to proceed with deployment
 - Alerted @scout to prepare for QA testing
 
-**Current Status:** UNBLOCKED - Railway token received, deployment in progress
-
-**Railway Token:** `077d32d1-dd8f-45e8-9f89-30a62d50e103`
+**Session 4 Status:** Token received but later found to be invalid
 
 ### 2026-02-01 - Session 3
 - Reviewed Slack messages - deployment was discussed but code not committed
@@ -75,9 +86,9 @@
 
 | Agent | Status | Last Check |
 |-------|--------|------------|
-| Nova (PM) | Online | 2026-02-02 00:18 |
+| Nova (PM) | Online | 2026-02-02 01:18 |
 | Pixel (UX) | Waiting for design tasks | 2026-02-01 |
-| Bolt (Dev) | Code complete, waiting for deploy access | 2026-02-02 |
+| Bolt (Dev) | Code complete, blocked on Railway auth | 2026-02-02 |
 | Scout (QA) | Waiting for deployment to test | 2026-02-01 |
 
 ## GitHub Issues (To Create After Approval)
@@ -115,16 +126,17 @@
 
 ## Next Actions
 
-1. ✅ Railway deployment access received - @bolt deploying now (Issue #30)
-2. After deployment: Complete QA testing (Issue #31)
-3. Get remaining design questions answered
-4. Close design issue once mockups received (Issue #24)
+1. **BLOCKED** - Await valid Railway credentials from @babak/@arash (Issue #30)
+2. Once unblocked: @bolt deploys to Railway
+3. After deployment: Complete QA testing (Issue #31)
+4. Get remaining design questions answered
+5. Close design issue once mockups received (Issue #24)
 
 ## Current Blockers
 
 | Blocker | Owner | Status |
 |---------|-------|--------|
-| Railway deployment access | @babak/@arash | ✅ RESOLVED (token provided) |
+| Railway deployment access | @babak/@arash | BLOCKED - token auth failed, need new token or manual deploy |
 
 ## Next Sync Agenda
 1. Resolve Railway deployment blocker
