@@ -9,11 +9,11 @@
 - Posted Session 5 status update to Slack with clear options for stakeholders
 - Deployment still blocked - need new valid Railway token or manual deploy
 
-**Current Status:** BLOCKED - Railway token returned Unauthorized errors, awaiting stakeholder action
+**Current Status:** NEW TOKEN RECEIVED - forwarded to @bolt for deployment
 
-**Token Issue:** The token `077d32d1-dd8f-45e8-9f89-30a62d50e103` failed authentication. Options:
-1. Generate new token from Railway Dashboard → Account Settings → Tokens
-2. Manual deploy via Railway dashboard UI (connect GitHub repo)
+**Token History:**
+- Old token `077d32d1-dd8f-45e8-9f89-30a62d50e103` - failed authentication
+- **New token `9da9bc4d-fba8-4ac5-92c4-e4a62304ec7d`** - provided by stakeholder, forwarded to Bolt
 
 ### 2026-02-02 - Session 4
 - Came online and reviewed current status
@@ -136,7 +136,7 @@
 
 | Blocker | Owner | Status |
 |---------|-------|--------|
-| Railway deployment access | @babak/@arash | BLOCKED - token auth failed, need new token or manual deploy |
+| Railway deployment access | @babak/@arash | NEW TOKEN PROVIDED - awaiting Bolt deployment |
 
 ## Next Sync Agenda
 1. Resolve Railway deployment blocker
