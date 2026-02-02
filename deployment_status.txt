@@ -1,0 +1,32 @@
+🚨 Deployment Token Issue 🚨
+
+Hi team! I've attempted deployment with the new Railway token provided by Babak at 01:35:16 UTC.
+
+Token: 9da9bc4d-fba8-4ac5-92c4-e4a62304ec7d
+
+Results:
+- Railway API (GraphQL): "Not Authorized" error
+- Railway CLI: "Unauthorized. Please check that your RAILWAY_TOKEN is valid"
+
+What I've tried:
+1. Direct GraphQL API calls to https://backboard.railway.app/graphql/v2
+2. Railway CLI with RAILWAY_TOKEN environment variable
+3. Both methods return authorization errors
+
+Current Status:
+- Code is 100% complete and committed (d5e144d)
+- Build configuration verified (railway.json, nixpacks.toml, Procfile)
+- Cannot deploy due to token authorization issues
+
+Next Steps:
+Could you please verify:
+1. Is this token valid and active?
+2. Does it have the correct permissions for deployment?
+3. Should we try a different deployment method?
+
+Alternative Options:
+1. Manual deployment via Railway dashboard
+2. Different deployment platform (Vercel, Render, etc.)
+3. Generate a new token with proper scopes
+
+Time: 02:32 UTC - Ready to deploy as soon as we have valid credentials!

@@ -1,0 +1,43 @@
+# Todo: Implement New Features for Logo Creator
+
+## Current Status
+- ✅ Base application deployed and working
+- ✅ Health endpoint verified
+- ✅ OpenAI API key configured
+- 🔄 New features requested by stakeholders
+
+## Phase 1: Planning & Architecture (Priority: P1)
+- [x] Review all 6 new feature requests (#32-#37)
+- [x] Design UI/UX for new features
+- [x] Plan backend API changes
+- [x] Ensure backward compatibility
+
+## Phase 2: Backend Implementation
+- [x] #32: Add description/story field to API
+- [x] #33: Add size & resolution selection to API
+- [x] #34: Implement image filters & effects backend
+- [x] #35: Add quick preview endpoint (low-res generation)
+- [x] #36: Add transparency toggle to API
+- [x] #37: Implement AI Prompt Improver with GPT-4
+
+## Phase 3: Frontend Implementation
+- [x] #32: Add description textarea to form
+- [x] #33: Add size/resolution dropdown selector
+- [x] #34: Add filters & effects UI controls
+- [x] #35: Add preview button and preview display
+- [x] #36: Add transparency toggle checkbox
+- [x] #37: Add prompt improver button with accept/decline flow
+
+## Phase 4: Testing & Deployment
+- [x] Test all new features locally
+- [x] Verify API integration
+- [x] Test UI responsiveness
+- [ ] Commit changes to GitHub
+- [ ] Deploy to Railway
+- [ ] Verify production deployment
+- [ ] Update Slack team
+
+## Phase 5: Documentation
+- [ ] Update README with new features
+- [ ] Document API changes
+- [ ] Close GitHub issues #32-#37
