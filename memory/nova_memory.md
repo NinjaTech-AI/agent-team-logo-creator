@@ -7,16 +7,27 @@
 - Verified health endpoint working: `/api/health` returns `{"status":"healthy"}`
 - Posted deployment success update to Slack with full status
 - Notified @scout to begin QA testing (Issue #31)
-- Reminded stakeholders about OPENAI_API_KEY requirement
+- Stakeholder added OPENAI_API_KEY but service needs redeploy to pick it up
+- Received new feature requests from stakeholder - created 6 GitHub issues (#32-#37)
+- Posted issue summary to Slack
 
-**Current Status:** APP IS LIVE - Awaiting OPENAI_API_KEY setup and QA testing
+**Current Status:** APP IS LIVE - Awaiting service redeploy for API key + new features queued
 
 **Live URL:** https://agent-team-logo-creator-production.up.railway.app
 
+**New Feature Requests (Issues #32-#37):**
+1. #32 - Description/story field for logo context
+2. #33 - Size & resolution selection
+3. #34 - Image filters & effects
+4. #35 - Quick preview before full resolution
+5. #36 - Transparency toggle
+6. #37 - AI Prompt Improver with preview (accept/decline)
+
 **Pending Actions:**
-1. Stakeholders need to add OPENAI_API_KEY to Railway dashboard
+1. Service redeploy needed to pick up OPENAI_API_KEY
 2. Scout to complete QA testing (Issue #31)
-3. Pixel design mockup (Issue #24)
+3. Bolt to implement new features (#32-#37)
+4. Pixel design mockup (Issue #24)
 
 ### 2026-02-02 - Session 5
 - Came online and reviewed current status
@@ -145,23 +156,36 @@
 ## Next Actions
 
 1. ✅ Railway deployment complete! Issue #30 closed
-2. Await stakeholders adding OPENAI_API_KEY to Railway dashboard
-3. Complete QA testing (Issue #31) - @scout in progress
-4. Get remaining design questions answered
-5. Close design issue once mockups received (Issue #24)
-6. Demo to stakeholders once OPENAI_API_KEY is configured
+2. ✅ OPENAI_API_KEY added - needs service redeploy
+3. Await service redeploy to activate API key
+4. Complete QA testing (Issue #31) - @scout
+5. Implement new features (#32-#37) - @bolt
+6. Review design mockup (Issue #24) - @pixel
+7. Demo to stakeholders once logo generation works
 
 ## Current Blockers
 
 | Blocker | Owner | Status |
 |---------|-------|--------|
 | Railway deployment access | @babak/@arash | ✅ RESOLVED - App deployed! |
-| OPENAI_API_KEY | @babak/@arash | PENDING - Needs to be added to Railway dashboard |
+| OPENAI_API_KEY activation | @babak/@arash | KEY ADDED - needs service redeploy |
+
+## New Feature Issues (Post-MVP)
+
+| Issue | Feature | Assignee | Status |
+|-------|---------|----------|--------|
+| #32 | Description/story field | @bolt | Open |
+| #33 | Size & resolution selection | @bolt | Open |
+| #34 | Image filters & effects | @bolt | Open |
+| #35 | Quick preview | @bolt | Open |
+| #36 | Transparency toggle | @bolt | Open |
+| #37 | AI Prompt Improver | @bolt | Open |
 
 ## Next Sync Agenda
 1. ~~Resolve Railway deployment blocker~~ DONE - App deployed!
-2. ~~Get deployment URL from @bolt~~ DONE - https://agent-team-logo-creator-production.up.railway.app
-3. Await OPENAI_API_KEY configuration from stakeholders
-4. Execute QA test plan (Issue #31) - @scout
-5. Review design mockup (Issue #24) - @pixel
-6. Demo to stakeholders with working logo generation
+2. ~~Get deployment URL~~ DONE - https://agent-team-logo-creator-production.up.railway.app
+3. ~~OPENAI_API_KEY configuration~~ KEY ADDED - needs redeploy
+4. Confirm logo generation works after redeploy
+5. Execute QA test plan (Issue #31) - @scout
+6. Plan implementation of new features (#32-#37)
+7. Demo to stakeholders
