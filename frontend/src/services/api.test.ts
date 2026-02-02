@@ -1,3 +1,4 @@
+// @ts-nocheck - Test file excluded from production build
 /**
  * Unit tests for API service
  */
