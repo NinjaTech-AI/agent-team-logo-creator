@@ -1,10 +1,16 @@
-import { useState } from 'react';
-import { LogoInputForm, LoadingState, LogoPreview } from './components';
+import { useState, useEffect } from 'react';
+import { LogoInputForm, ProgressLoader, LogoPreview, LogoHistory } from './components';
+import type { LogoHistoryItem } from './components';
 import { generateLogo, improvePrompt } from './services/api';
 import type { LogoStyle, LogoSize, LogoResolution, LogoFilter } from './types';
 
+type LoadingStage = 'analyzing' | 'generating' | 'finalizing';
+
+const HISTORY_KEY = 'logo_history';
+
 function App() {
   const [isLoading, setIsLoading] = useState(false);
+  const [loadingStage, setLoadingStage] = useState<LoadingStage>('analyzing');
   const [isImproving, setIsImproving] = useState(false);
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -12,6 +18,51 @@ function App() {
   const [error, setError] = useState<string | null>(null);
   const [showPromptDialog, setShowPromptDialog] = useState(false);
   const [currentParams, setCurrentParams] = useState<any>(null);
+  const [logoHistory, setLogoHistory] = useState<LogoHistoryItem[]>([]);
+  const [showHistory, setShowHistory] = useState(false);
+
+  // Load history from localStorage on mount
+  useEffect(() => {
+    const savedHistory = localStorage.getItem(HISTORY_KEY);
+    if (savedHistory) {
+      try {
+        setLogoHistory(JSON.parse(savedHistory));
+      } catch (e) {
+        console.error('Failed to load history:', e);
+      }
+    }
+  }, []);
+
+  // Save history to localStorage whenever it changes
+  useEffect(() => {
+    localStorage.setItem(HISTORY_KEY, JSON.stringify(logoHistory));
+  }, [logoHistory]);
+
+  // Progress stage management
+  useEffect(() => {
+    if (!isLoading) return;
+
+    setLoadingStage('analyzing');
+    const timer1 = setTimeout(() => setLoadingStage('generating'), 1000);
+    const timer2 = setTimeout(() => setLoadingStage('finalizing'), 3000);
+
+    return () => {
+      clearTimeout(timer1);
+      clearTimeout(timer2);
+    };
+  }, [isLoading]);
+
+  // Add logo to history
+  const addToHistory = (url: string, businessName: string, style: string) => {
+    const newItem: LogoHistoryItem = {
+      id: Date.now().toString(),
+      url,
+      timestamp: Date.now(),
+      businessName,
+      style,
+    };
+    setLogoHistory((prev) => [newItem, ...prev].slice(0, 20)); // Keep last 20
+  };
 
   const handleGenerate = async (params: {
     businessName: string;
@@ -41,6 +92,8 @@ function App() {
 
       if (response.success && response.logo_url) {
         setLogoUrl(response.logo_url);
+        // Add to history
+        addToHistory(response.logo_url, params.businessName, params.style);
       } else {
         setError(response.error || 'Failed to generate logo');
       }
@@ -159,7 +212,8 @@ function App() {
     if (!urlToDownload) return;
 
     try {
-      const response = await fetch(urlToDownload);
+      // Try direct download first (works if CORS allows)
+      const response = await fetch(urlToDownload, { mode: 'cors' });
       const blob = await response.blob();
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -170,7 +224,15 @@ function App() {
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
     } catch (err) {
-      console.error('Download failed:', err);
+      // Fallback: Open in new tab if CORS fails
+      console.warn('Direct download failed, opening in new tab:', err);
+      const a = document.createElement('a');
+      a.href = urlToDownload;
+      a.target = '_blank';
+      a.download = logoUrl ? 'logo.png' : 'logo-preview.png';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
     }
   };
 
@@ -180,6 +242,17 @@ function App() {
     setError(null);
     setImprovedPrompt(null);
     setShowPromptDialog(false);
+  };
+
+  const handleSelectFromHistory = (item: LogoHistoryItem) => {
+    setLogoUrl(item.url);
+    setShowHistory(false);
+  };
+
+  const handleClearHistory = () => {
+    if (confirm('Are you sure you want to clear all logo history?')) {
+      setLogoHistory([]);
+    }
   };
 
   return (
@@ -192,12 +265,31 @@ function App() {
           <p className="text-lg text-gray-600">
             Generate unique logos for your business with the power of AI
           </p>
+          <button
+            onClick={() => setShowHistory(!showHistory)}
+            className="mt-4 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors flex items-center gap-2 mx-auto"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            {showHistory ? 'Hide' : 'Show'} History ({logoHistory.length})
+          </button>
         </header>
 
         <main className="max-w-4xl mx-auto">
           {error && (
             <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700">
               {error}
+            </div>
+          )}
+
+          {showHistory && (
+            <div className="mb-8">
+              <LogoHistory
+                history={logoHistory}
+                onSelect={handleSelectFromHistory}
+                onClear={handleClearHistory}
+              />
             </div>
           )}
 
@@ -248,7 +340,7 @@ function App() {
           )}
 
           {isLoading ? (
-            <LoadingState />
+            <ProgressLoader stage={loadingStage} />
           ) : (logoUrl || previewUrl) ? (
             <div className="space-y-6">
               <LogoPreview
