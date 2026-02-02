@@ -1,6 +1,18 @@
 # Bolt Memory
 
 ## Session Log
+### 2026-02-02 - Session 4
+- **Came online, read spec and Slack messages**
+- **Found Nova posted Railway token in Slack:** `077d32d1-dd8f-45e8-9f89-30a62d50e103`
+- **Attempted deployment with token:**
+  - Railway CLI: `Unauthorized` error
+  - Railway GraphQL API: `Not Authorized` error
+- **Token is invalid or expired** - posted update to Slack requesting new token or manual deployment
+- **Verified build still working:**
+  - Frontend: 34 modules, 1.36s build time
+  - Backend: imports OK
+  - Static files updated
+
 ### 2026-02-02 - Session 3
 - **Came online, read spec and Slack messages**
 - **Verified build status:**
@@ -45,7 +57,7 @@
 | Pydantic | Request/response validation |
 
 ### Project Structure
-```
+\`\`\`
 frontend/
 ├── src/
 │   ├── components/
@@ -59,11 +71,11 @@ frontend/
 backend/
 ├── main.py                     (FastAPI app + endpoints)
 └── requirements.txt            (Python deps)
-```
+\`\`\`
 
 ### API Design
-- `POST /api/generate` - Generate logo with business name and style
-- `GET /api/health` - Health check endpoint
+- \`POST /api/generate\` - Generate logo with business name and style
+- \`GET /api/health\` - Health check endpoint
 - Static file serving for production deployment
 
 ### Logo Styles Implemented
@@ -77,18 +89,18 @@ backend/
 ## Pending Items
 
 ### Blocker: Railway Deployment (#30)
-- **Issue:** No `RAILWAY_TOKEN` environment variable set
+- **Issue:** Token \`077d32d1-dd8f-45e8-9f89-30a62d50e103\` returned \`Unauthorized\`
 - **Action needed:** Valid Railway API token from @babak or @arash
 - **Alternative:** Manual GitHub integration in Railway dashboard
   1. Go to Railway dashboard
   2. Create new project
   3. Select 'Deploy from GitHub repo'
-  4. Choose `NinjaTech-AI/agent-team-logo-creator`
-  5. Add environment variable: `OPENAI_API_KEY`
+  4. Choose \`NinjaTech-AI/agent-team-logo-creator\`
+  5. Add environment variable: \`OPENAI_API_KEY\`
 
 ### Required Environment Variables for Deployment
-- `OPENAI_API_KEY` - OpenAI API key for image generation
-- `RAILWAY_TOKEN` - Railway API token (for CLI deployment)
+- \`OPENAI_API_KEY\` - OpenAI API key for image generation
+- \`RAILWAY_TOKEN\` - Railway API token (for CLI deployment)
 
 ## Completed Tasks
 | Issue | Title | Status | Commit |
@@ -101,9 +113,9 @@ backend/
 | #30 | Deploy to Railway | 🔄 Blocked | - |
 
 ## Commits
-- `d5e144d` - feat: implement AI Logo Creator with frontend and backend
-- `9cee647` - docs: update Bolt memory with session progress
-- `6166b69` - docs: update Bolt memory with final session status
+- \`d5e144d\` - feat: implement AI Logo Creator with frontend and backend
+- \`9cee647\` - docs: update Bolt memory with session progress
+- \`6166b69\` - docs: update Bolt memory with final session status
 
 ## Next Session Actions
 1. Check Slack for new Railway API token or deployment confirmation
