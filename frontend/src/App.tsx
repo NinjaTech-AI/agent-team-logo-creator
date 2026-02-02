@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { LogoInputForm, ProgressLoader, LogoPreview, LogoHistory } from './components';
+import { LogoInputForm, ProgressLoader, LogoVariations, LogoHistory } from './components';
 import type { LogoHistoryItem } from './components';
 import { generateLogo, improvePrompt } from './services/api';
 import type { LogoStyle, LogoSize, LogoResolution, LogoFilter } from './types';
@@ -12,7 +12,7 @@ function App() {
   const [isLoading, setIsLoading] = useState(false);
   const [loadingStage, setLoadingStage] = useState<LoadingStage>('analyzing');
   const [isImproving, setIsImproving] = useState(false);
-  const [logoUrl, setLogoUrl] = useState<string | null>(null);
+  const [logoUrls, setLogoUrls] = useState<string[]>([]);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [improvedPrompt, setImprovedPrompt] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -75,7 +75,7 @@ function App() {
   }) => {
     setIsLoading(true);
     setError(null);
-    setLogoUrl(null);
+    setLogoUrls([]);
     setPreviewUrl(null);
 
     try {
@@ -90,9 +90,13 @@ function App() {
         preview_mode: false,
       });
 
-      if (response.success && response.logo_url) {
-        setLogoUrl(response.logo_url);
-        // Add to history
+      if (response.success && response.logo_urls && response.logo_urls.length > 0) {
+        setLogoUrls(response.logo_urls);
+        // Add first logo to history
+        addToHistory(response.logo_urls[0], params.businessName, params.style);
+      } else if (response.success && response.logo_url) {
+        // Backward compatibility
+        setLogoUrls([response.logo_url]);
         addToHistory(response.logo_url, params.businessName, params.style);
       } else {
         setError(response.error || 'Failed to generate logo');
@@ -175,7 +179,7 @@ function App() {
     setShowPromptDialog(false);
     setIsLoading(true);
     setError(null);
-    setLogoUrl(null);
+    setLogoUrls([]);
 
     try {
       // Generate with improved prompt (description)
@@ -186,8 +190,11 @@ function App() {
         preview_mode: false,
       });
 
-      if (response.success && response.logo_url) {
-        setLogoUrl(response.logo_url);
+      if (response.success && response.logo_urls && response.logo_urls.length > 0) {
+        setLogoUrls(response.logo_urls);
+      } else if (response.success && response.logo_url) {
+        // Backward compatibility
+        setLogoUrls([response.logo_url]);
       } else {
         setError(response.error || 'Failed to generate logo');
       }
@@ -207,29 +214,29 @@ function App() {
     setCurrentParams(null);
   };
 
-  const handleDownload = async () => {
-    const urlToDownload = logoUrl || previewUrl;
+  const handleDownload = async (url?: string) => {
+    const urlToDownload = url || previewUrl || (logoUrls.length > 0 ? logoUrls[0] : null);
     if (!urlToDownload) return;
 
     try {
       // Try direct download first (works if CORS allows)
       const response = await fetch(urlToDownload, { mode: 'cors' });
       const blob = await response.blob();
-      const url = URL.createObjectURL(blob);
+      const blobUrl = URL.createObjectURL(blob);
       const a = document.createElement('a');
-      a.href = url;
-      a.download = logoUrl ? 'logo.png' : 'logo-preview.png';
+      a.href = blobUrl;
+      a.download = previewUrl ? 'logo-preview.png' : 'logo.png';
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
-      URL.revokeObjectURL(url);
+      URL.revokeObjectURL(blobUrl);
     } catch (err) {
       // Fallback: Open in new tab if CORS fails
       console.warn('Direct download failed, opening in new tab:', err);
       const a = document.createElement('a');
       a.href = urlToDownload;
       a.target = '_blank';
-      a.download = logoUrl ? 'logo.png' : 'logo-preview.png';
+      a.download = previewUrl ? 'logo-preview.png' : 'logo.png';
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
@@ -237,7 +244,7 @@ function App() {
   };
 
   const handleReset = () => {
-    setLogoUrl(null);
+    setLogoUrls([]);
     setPreviewUrl(null);
     setError(null);
     setImprovedPrompt(null);
@@ -245,7 +252,7 @@ function App() {
   };
 
   const handleSelectFromHistory = (item: LogoHistoryItem) => {
-    setLogoUrl(item.url);
+    setLogoUrls([item.url]);
     setShowHistory(false);
   };
 
@@ -341,20 +348,28 @@ function App() {
 
           {isLoading ? (
             <ProgressLoader stage={loadingStage} />
-          ) : (logoUrl || previewUrl) ? (
+          ) : (logoUrls.length > 0 || previewUrl) ? (
             <div className="space-y-6">
-              <LogoPreview
-                logoUrl={logoUrl || previewUrl!}
-                onDownload={handleDownload}
-                onReset={handleReset}
-              />
-              {previewUrl && !logoUrl && (
-                <div className="text-center">
-                  <p className="text-sm text-gray-600 mb-4">
-                    This is a quick preview. Generate full resolution for the best quality.
-                  </p>
-                </div>
-              )}
+              {logoUrls.length > 0 ? (
+                <LogoVariations
+                  logoUrls={logoUrls}
+                  onDownload={handleDownload}
+                  onReset={handleReset}
+                />
+              ) : previewUrl ? (
+                <>
+                  <LogoVariations
+                    logoUrls={[previewUrl]}
+                    onDownload={handleDownload}
+                    onReset={handleReset}
+                  />
+                  <div className="text-center">
+                    <p className="text-sm text-gray-600 mb-4">
+                      This is a quick preview. Generate full resolution for the best quality.
+                    </p>
+                  </div>
+                </>
+              ) : null}
             </div>
           ) : (
             <LogoInputForm

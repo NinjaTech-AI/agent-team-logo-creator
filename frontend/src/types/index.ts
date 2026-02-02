@@ -11,7 +11,8 @@ export interface GenerateLogoRequest {
 
 export interface GenerateLogoResponse {
   success: boolean;
-  logo_url: string;
+  logo_url: string;  // Deprecated: kept for backward compatibility
+  logo_urls?: string[];  // New: multiple logo URLs
   generation_id: string;
   error?: string;
 }

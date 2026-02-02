@@ -62,7 +62,8 @@ class ImprovePromptResponse(BaseModel):
 
 class GenerateLogoResponse(BaseModel):
     success: bool
-    logo_url: str | None = None
+    logo_url: str | None = None  # Deprecated: kept for backward compatibility
+    logo_urls: list[str] | None = None  # New: multiple logo URLs
     generation_id: str | None = None
     error: str | None = None
 
@@ -208,19 +209,25 @@ Requirements:
         # DALL-E 3 only supports "standard" and "hd" quality
         dalle_quality = "hd" if quality in ["high", "hd"] else "standard"
 
-        response = client.images.generate(
-            model="dall-e-3",
-            prompt=prompt,
-            size=dalle_size,
-            quality=dalle_quality,
-            n=1,
-        )
-
-        logo_url = response.data[0].url
+        # Determine number of variations (4 for full generation, 1 for preview)
+        # DALL-E 3 only supports n=1, so we need to make multiple calls
+        num_variations = 1 if request.preview_mode else 4
+        
+        logo_urls = []
+        for i in range(num_variations):
+            response = client.images.generate(
+                model="dall-e-3",
+                prompt=prompt,
+                size=dalle_size,
+                quality=dalle_quality,
+                n=1,
+            )
+            logo_urls.append(response.data[0].url)
 
         return GenerateLogoResponse(
             success=True,
-            logo_url=logo_url,
+            logo_url=logo_urls[0] if logo_urls else None,  # Backward compatibility
+            logo_urls=logo_urls,
             generation_id=generation_id,
         )
 
