@@ -114,48 +114,28 @@ Return ONLY the improved prompt text, no explanations."""
         )
         
         improved_prompt = improvement_response.choices[0].message.content.strip()
-        
-        # Generate preview with improved prompt
+
+        # Generate preview with improved prompt using DALL-E 3
         preview_response = client.images.generate(
-            model="gpt-image-1",
+            model="dall-e-3",
             prompt=improved_prompt,
-            size="1024x1024",  # Standard size for preview
-            quality="low",  # Use 'low' instead of 'standard'
+            size="1024x1024",
+            quality="standard",
             n=1,
         )
-        
+
         preview_url = preview_response.data[0].url
-        
+
         return ImprovePromptResponse(
             success=True,
             improved_prompt=improved_prompt,
             preview_url=preview_url
         )
-        
+
     except Exception as e:
-        error_message = str(e)
-        # Try fallback to dall-e-3
-        if "model" in error_message.lower():
-            try:
-                preview_response = client.images.generate(
-                    model="dall-e-3",
-                    prompt=improved_prompt,
-                    size="1024x1024",
-                    quality="standard",  # DALL-E 3 supports "standard" and "hd"
-                    n=1,
-                )
-                preview_url = preview_response.data[0].url
-                return ImprovePromptResponse(
-                    success=True,
-                    improved_prompt=improved_prompt,
-                    preview_url=preview_url
-                )
-            except Exception as fallback_e:
-                error_message = str(fallback_e)
-        
         return ImprovePromptResponse(
             success=False,
-            error=f"Failed to improve prompt: {error_message}"
+            error=f"Failed to improve prompt: {str(e)}"
         )
 
 
@@ -220,13 +200,19 @@ Requirements:
             }
             quality = quality_map.get(request.resolution, "high")
 
-        # Generate image using OpenAI API (GPT Image Generator 1.5 / DALL-E)
+        # Generate image using OpenAI DALL-E 3 API
         client = get_openai_client()
+
+        # DALL-E 3 only supports 1024x1024, 1792x1024, 1024x1792
+        dalle_size = size if size in ["1024x1024", "1792x1024", "1024x1792"] else "1024x1024"
+        # DALL-E 3 only supports "standard" and "hd" quality
+        dalle_quality = "hd" if quality in ["high", "hd"] else "standard"
+
         response = client.images.generate(
-            model="gpt-image-1",  # GPT Image Generator 1.5
+            model="dall-e-3",
             prompt=prompt,
-            size=size,
-            quality=quality,
+            size=dalle_size,
+            quality=dalle_quality,
             n=1,
         )
 
@@ -239,33 +225,9 @@ Requirements:
         )
 
     except Exception as e:
-        error_message = str(e)
-        # Try fallback to dall-e-3 if gpt-image-1 isn't available
-        if "model" in error_message.lower():
-            try:
-                # DALL-E 3 only supports 1024x1024, 1792x1024, 1024x1792
-                dalle_size = size if size in ["1024x1024", "1792x1024", "1024x1792"] else "1024x1024"
-                # DALL-E 3 only supports "standard" and "hd" quality
-                dalle_quality = "hd" if quality in ["high", "hd"] else "standard"
-                response = client.images.generate(
-                    model="dall-e-3",
-                    prompt=prompt,
-                    size=dalle_size,
-                    quality=dalle_quality,
-                    n=1,
-                )
-                logo_url = response.data[0].url
-                return GenerateLogoResponse(
-                    success=True,
-                    logo_url=logo_url,
-                    generation_id=generation_id,
-                )
-            except Exception as fallback_e:
-                error_message = str(fallback_e)
-
         return GenerateLogoResponse(
             success=False,
-            error=f"Failed to generate logo: {error_message}",
+            error=f"Failed to generate logo: {str(e)}",
         )
 
 
