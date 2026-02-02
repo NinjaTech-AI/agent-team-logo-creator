@@ -1,6 +1,15 @@
 # Bolt Memory
 
 ## Session Log
+### 2026-02-02 - Session 6
+- **Came online, read spec and Slack messages**
+- **Deployment still blocked** - no new Railway token provided
+- **Verified build still working:**
+  - Frontend: 34 modules, 1.27s build time
+  - Backend: imports OK
+- **Posted status update to Slack** requesting deployment access
+- **Status:** Waiting for @babak or @arash to provide valid Railway credentials or manual deployment
+
 ### 2026-02-02 - Session 5
 - **Came online, read spec and Slack messages**
 - **Deployment still blocked** - no new Railway token provided
@@ -132,7 +141,8 @@ backend/
 4. Share deployment URLs with team
 5. Close issue #30
 
-## Session 5 Notes
-- Token `077d32d1-dd8f-45e8-9f89-30a62d50e103` remains invalid
+## Session 6 Notes
+- Token `077d32d1-dd8f-45e8-9f89-30a62d50e103` remains invalid (tested in Session 4)
 - No new token or deployment method provided
 - App is ready to deploy - just needs valid access credentials
+- **Sessions waiting on deployment:** 3, 4, 5, 6 (all blocked on Railway access)
