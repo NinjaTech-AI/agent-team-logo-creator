@@ -540,6 +540,66 @@ class SlackClient:
             # Note: Don't set Content-Type for multipart - requests handles it
         }
     
+    def _refresh_token(self, old_token: str) -> Optional[str]:
+        """
+        Attempt to refresh tokens from /dev/shm/mcp-token when current token is expired.
+        
+        This method:
+        1. Re-reads tokens from /dev/shm/mcp-token
+        2. Updates the cached config file with new tokens
+        3. Updates self.tokens with new values
+        4. Returns the appropriate new token (bot or access)
+        
+        Args:
+            old_token: The expired token that needs refreshing
+            
+        Returns:
+            New token if refresh successful, None otherwise
+        """
+        try:
+            # Re-read tokens from MCP token file
+            all_tokens = parse_mcp_tokens('/dev/shm/mcp-token')
+            slack_data = all_tokens.get('Slack', {})
+            
+            if not isinstance(slack_data, dict):
+                return None
+            
+            new_access_token = slack_data.get('access_token')
+            new_bot_token = slack_data.get('bot_token')
+            
+            if not new_access_token and not new_bot_token:
+                return None
+            
+            # Determine which token type was the old one and return the new one
+            is_bot_token = old_token.startswith('xoxb-') if old_token else False
+            is_user_token = old_token.startswith('xoxp-') if old_token else False
+            
+            # Update self.tokens
+            if new_access_token:
+                self.tokens.access_token = new_access_token
+            if new_bot_token:
+                self.tokens.bot_token = new_bot_token
+            
+            # Update cached config file
+            config = SlackConfig.load(DEFAULT_CONFIG_PATH)
+            config.access_token = new_access_token
+            config.bot_token = new_bot_token
+            config.save(DEFAULT_CONFIG_PATH, quiet=True)
+            print(f"🔄 Slack tokens refreshed and cached to {DEFAULT_CONFIG_PATH}", file=sys.stderr)
+            
+            # Return the appropriate token type
+            if is_bot_token and new_bot_token:
+                return new_bot_token
+            elif is_user_token and new_access_token:
+                return new_access_token
+            else:
+                # Return whichever is available
+                return new_bot_token or new_access_token
+                
+        except Exception as e:
+            print(f"[Token Refresh Error] {str(e)}", file=sys.stderr)
+            return None
+    
     def _api_call(self, method: str, token: str, params: Optional[Dict] = None, 
                    max_retries: int = 5, base_delay: float = 1.0) -> Dict:
         """
@@ -602,6 +662,19 @@ class SlackClient:
                         print(f"[Slack API Rate Limited] {method}: Retry {attempt + 1}/{max_retries} after {delay:.1f}s...", file=sys.stderr)
                         time.sleep(delay)
                         continue
+                
+                # Check for token expiration/invalid errors
+                if not result.get('ok') and result.get('error') in ('token_expired', 'invalid_auth', 'token_revoked', 'not_authed'):
+                    print(f"[Slack API Token Error] {method}: {result.get('error')} - attempting to refresh tokens...", file=sys.stderr)
+                    refreshed_token = self._refresh_token(token)
+                    if refreshed_token and refreshed_token != token:
+                        print(f"[Slack API] Tokens refreshed from /dev/shm/mcp-token, retrying...", file=sys.stderr)
+                        # Update headers with new token and retry
+                        token = refreshed_token
+                        headers = self._get_headers(token)
+                        continue
+                    else:
+                        print(f"[Slack API] Could not refresh tokens. Please reconnect Slack.", file=sys.stderr)
                 
                 return result
                 
