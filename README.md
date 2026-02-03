@@ -1,147 +1,79 @@
-# Agent Team Logo Creator
+# NinjaSquad 🥷
 
-![Agent Team](cover_photo.png)
+![NinjaSquad Team](cover_photo.png)
 
-A multi-agent AI system for creating team logos, powered by collaborative AI agents communicating via Slack.
+**A bootstrap template for creating multi-agent AI teams powered by collaborative AI agents communicating via Slack.**
 
-The Agent Team Logo Creator is a collaborative multi-agent system designed to transform the creative process of logo development into an orchestrated, intelligent workflow. The system comprises four specialized AI agents, each embodying a distinct role within a traditional design team: Nova serves as the Project Manager, coordinating tasks and ensuring alignment with client requirements; Pixel brings creative vision as the UX Designer, crafting visual concepts and iterating on aesthetic direction; Bolt operates as the Developer, translating designs into technical implementations and managing the codebase; and Scout functions as the Quality Assurance specialist, rigorously testing outputs and validating that deliverables meet established standards. These agents communicate through a shared Slack workspace, mimicking the natural collaboration patterns of human teams while leveraging the speed and consistency of AI-driven execution.
+NinjaSquad is a framework for orchestrating multiple AI agents that work together like a real team. Each agent has a specialized role, personality, and set of responsibilities. They communicate through Slack, maintain persistent memory across sessions, and coordinate their work through GitHub.
 
-## 🤖 The Agent Team
+## 🤖 The Default Agent Team
 
 | Agent | Role | Responsibilities |
 |-------|------|------------------|
-| **Nova** 🌟 | Product Manager | PRD interviews with Babak/Arash, GitHub issues/PRs, task coordination, code reviews |
-| **Pixel** 🎨 | UX Designer | High-level UX designs as images, wireframes, visual mockups |
+| **Nova** 🌟 | Product Manager | PRD interviews, GitHub issues/PRs, task coordination, code reviews |
+| **Pixel** 🎨 | UX Designer | High-level UX designs, wireframes, visual mockups |
 | **Bolt** ⚡ | Full-Stack Developer | Frontend & backend implementation, code commits |
 | **Scout** 🔍 | QA Engineer | Testing, bug reports, quality assurance |
 
-## 👤 Human Stakeholders
+## ✨ Features
 
-**Babak and Arash** - Product Owners
-- Provide product vision and requirements
-- Participate in PRD interviews with Nova
-- Review and approve key decisions
-- Available in #logo-creator Slack channel
-- All agents take orders from Babak or Arash
+- **Multi-Agent Orchestration** - Run multiple AI agents in coordinated cycles
+- **Slack Communication** - Agents communicate via Slack with custom avatars
+- **Persistent Memory** - Each agent maintains context across sessions
+- **GitHub Integration** - Automatic issue tracking, PRs, and code commits
+- **Customizable Agents** - Define agent personalities via Markdown spec files
+- **Retry & Token Refresh** - Built-in resilience for API rate limits and token expiration
 
 ## 🏗️ Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
-│                       ORCHESTRATOR                               │
-│                    (orchestrator.py)                         │
-│                                                                  │
-│   Runs Claude Code 4 times per sync cycle, once per agent       │
-│   Each agent's prompt is built from their spec MD file          │
+│                       ORCHESTRATOR                                  │
+│                    (orchestrator.py)                                │
+│                                                                     │
+│   Runs Claude Code for each agent in sequence                       │
+│   Each agent's prompt is built from their spec MD file              │
 └─────────────────────────────────────────────────────────────────────┘
                               │
                               ▼
 ┌─────────────────────────────────────────────────────────────────────┐
-│                         TOOLS                                    │
-│                                                                  │
-│   ┌─────────────────┐  ┌─────────────┐  ┌─────────────┐         │
-│   │slack_interface  │  │ Image Gen   │  │  Internet   │         │
-│   │  (all agents)   │  │(Pixel only) │  │   Search    │         │
-│   └─────────────────┘  └─────────────┘  └─────────────┘         │
+│                         TOOLS                                       │
+│                                                                     │
+│   ┌─────────────────┐  ┌─────────────┐  ┌─────────────┐            │
+│   │slack_interface  │  │ Image Gen   │  │  Internet   │            │
+│   │  (all agents)   │  │(Pixel only) │  │   Search    │            │
+│   └─────────────────┘  └─────────────┘  └─────────────┘            │
 └─────────────────────────────────────────────────────────────────────┘
                               │
                               ▼
 ┌─────────────────────────────────────────────────────────────────────┐
-│                     AGENT SPECS (Prompts)                        │
-│                      agent-docs/*.md                             │
-│                                                                  │
-│   NOVA_SPEC.md → PIXEL_SPEC.md → BOLT_SPEC.md → SCOUT_SPEC.md  │
+│                     AGENT SPECS (Prompts)                           │
+│                      agent-docs/*.md                                │
+│                                                                     │
+│   NOVA_SPEC.md → PIXEL_SPEC.md → BOLT_SPEC.md → SCOUT_SPEC.md      │
 └─────────────────────────────────────────────────────────────────────┘
                               │
                               ▼
 ┌─────────────────────────────────────────────────────────────────────┐
-│                     SLACK CHANNEL                                │
-│                    #logo-creator                                 │
-│                                                                  │
-│   All agents + Babak/Arash communicate here                     │
+│                     SLACK CHANNEL                                   │
+│                  (configurable)                                     │
+│                                                                     │
+│   All agents + humans communicate here                              │
 └─────────────────────────────────────────────────────────────────────┘
                               │
                               ▼
 ┌─────────────────────────────────────────────────────────────────────┐
-│                      MEMORY FILES                                │
-│                       memory/*.md                                │
-│                                                                  │
-│   Each agent persists context between sessions                  │
+│                      MEMORY FILES                                   │
+│                       memory/*.md                                   │
+│                                                                     │
+│   Each agent persists context between sessions                      │
 └─────────────────────────────────────────────────────────────────────┘
 ```
-
-## 🔧 Tools
-
-Agents have access to these tools:
-
-| Tool | Available To | Purpose |
-|------|--------------|---------|
-| **slack_interface.py** | All agents | Communication in #logo-creator |
-| **Image Generation** | Pixel | Create UI mockups, wireframes, designs |
-| **Internet Search** | All agents | Research, documentation, best practices |
-| **GitHub CLI** | All agents | Code commits, issues, PRs |
-
-### Slack Interface
-
-All agent communication uses the `slack_interface.py` CLI tool:
-
-```bash
-# First-time setup (required)
-python slack_interface.py config --set-channel "#logo-creator"
-python slack_interface.py config --set-agent nova
-
-# Send messages as configured agent
-python slack_interface.py say "Sprint planning at 2pm!"
-
-# Read messages from the channel
-python slack_interface.py read              # Last 50 messages
-python slack_interface.py read -l 100       # Last 100 messages
-
-# Upload files
-python slack_interface.py upload design.png --title "New Design"
-
-# Show configuration
-python slack_interface.py config
-```
-
-See [agent-docs/SLACK_INTERFACE.md](agent-docs/SLACK_INTERFACE.md) for complete documentation.
-
-## 🔄 How It Works
-
-### Simple Orchestration
-
-The orchestrator runs Claude Code **4 times per sync cycle**:
-
-1. **Nova** (PM) - Reads spec from `NOVA_SPEC.md`, checks Slack, manages project
-2. **Pixel** (UX) - Reads spec from `PIXEL_SPEC.md`, creates designs
-3. **Bolt** (Dev) - Reads spec from `BOLT_SPEC.md`, writes code
-4. **Scout** (QA) - Reads spec from `SCOUT_SPEC.md`, tests and reports bugs
-
-Each agent:
-- Gets their behavior/personality from their spec MD file
-- Reads their memory file for previous context
-- Communicates via Slack #logo-creator channel using `slack_interface.py`
-- Updates their memory file after work
-- Commits work to GitHub
-
-### PRD Creation Phase
-
-Before development begins:
-1. **Nova interviews Babak/Arash** - Gathers requirements through structured questions in Slack
-2. **Nova drafts PRD** - Documents vision, features, and acceptance criteria
-3. **Babak/Arash review & approve** - PRD finalized before development begins
-
-### Hourly Sync Cycle
-
-1. **Wake Up** - Orchestrator triggers all agents
-2. **Sync Meeting** - Agents post status updates to #logo-creator
-3. **Work Phase** - Agents execute their tasks
-4. **Commit & Document** - Agents update memory and push to GitHub
 
 ## 📁 Project Structure
 
 ```
-agent-team-logo-creator/
+ninja-squad/
 ├── README.md
 ├── requirements.txt
 ├── slack_interface.py       # Slack communication CLI tool
@@ -154,8 +86,7 @@ agent-team-logo-creator/
 │   ├── NOVA_SPEC.md         # Nova's behavior & personality
 │   ├── PIXEL_SPEC.md        # Pixel's behavior & personality
 │   ├── BOLT_SPEC.md         # Bolt's behavior & personality
-│   ├── SCOUT_SPEC.md        # Scout's behavior & personality
-│   └── PRD.md               # Product Requirements (created by Nova)
+│   └── SCOUT_SPEC.md        # Scout's behavior & personality
 │
 ├── memory/                  # Agent memory files
 │   ├── nova_memory.md
@@ -169,7 +100,11 @@ agent-team-logo-creator/
 │   ├── bolt.png
 │   └── scout.png
 │
+├── scripts/                 # Utility scripts
+│   └── reset_project.py     # Reset project to clean state
+│
 ├── orchestrator.py          # Main orchestrator
+└── monitor.py               # Slack message monitor
 ```
 
 ## 🚀 Quick Start
@@ -179,30 +114,25 @@ agent-team-logo-creator/
 - Python 3.11+
 - Claude Code CLI
 - GitHub CLI (`gh`)
-- Slack workspace with #logo-creator channel
-- Bot token with required scopes (channels:history, chat:write, etc.)
+- Slack workspace with a dedicated channel
+- Slack bot token with required scopes
 
-### First-Time Setup: Onboarding
-
-When an agent wakes up for the first time, follow the [Onboarding Guide](agent-docs/ONBOARDING.md):
-
-1. **Read your agent specification** - Understand your role and responsibilities
-2. **Configure Slack** - Set default channel and agent identity
-3. **Test capabilities** - Verify all tools work
-4. **Check memory** - Read context from previous sessions
-
-⚠️ **IMPORTANT**: Agents should **never assume** anything. If information is missing, use the `ask` tool to request clarification from the user.
-
-See [agent-docs/ONBOARDING.md](agent-docs/ONBOARDING.md) for complete documentation.
-
-### Manual Setup
+### Installation
 
 ```bash
+# Clone the repository
+git clone https://github.com/NinjaTech-AI/ninja-squad.git
+cd ninja-squad
+
 # Install dependencies
 pip install -r requirements.txt
+```
 
+### Configuration
+
+```bash
 # Configure Slack (required before use)
-python slack_interface.py config --set-channel "#logo-creator"
+python slack_interface.py config --set-channel "#your-channel"
 python slack_interface.py config --set-agent nova
 
 # Test Slack connection
@@ -222,7 +152,119 @@ python orchestrator.py --agent Pixel --task "Create homepage wireframe"
 
 # List available agents
 python orchestrator.py --list
+
+# Test all capabilities
+python orchestrator.py --test
 ```
+
+## 🔧 Slack Interface
+
+All agent communication uses the `slack_interface.py` CLI tool:
+
+```bash
+# Send messages as configured agent
+python slack_interface.py say "Hello team!"
+
+# Send as a specific agent
+python slack_interface.py say -a nova "Sprint planning at 2pm!"
+python slack_interface.py say -a pixel "Design review ready"
+
+# Read messages from the channel
+python slack_interface.py read              # Last 50 messages
+python slack_interface.py read -l 100       # Last 100 messages
+
+# Upload files
+python slack_interface.py upload design.png --title "New Design"
+
+# Show configuration
+python slack_interface.py config
+
+# List all agents
+python slack_interface.py agents
+```
+
+### Features
+
+- **Custom Avatars** - Each agent has a unique robot avatar
+- **Rate Limiting** - Automatic retry with exponential backoff
+- **Token Refresh** - Auto-refreshes expired tokens from `/dev/shm/mcp-token`
+- **Configurable Defaults** - Set default channel and agent identity
+
+See [agent-docs/SLACK_INTERFACE.md](agent-docs/SLACK_INTERFACE.md) for complete documentation.
+
+## 🎯 Customization
+
+### Creating Your Own Agent Team
+
+1. **Define Agent Specs** - Create/modify `agent-docs/*_SPEC.md` files
+2. **Create Avatars** - Add custom avatar images to `avatars/`
+3. **Update Config** - Modify `agents_config.py` with your agents
+4. **Set Up Memory** - Create memory files in `memory/`
+
+### Agent Spec Template
+
+Each agent spec file (`agent-docs/*_SPEC.md`) defines:
+- Agent identity and role
+- Personality traits
+- Responsibilities and capabilities
+- Communication style
+- Workflow rules
+
+### Workflow Customization
+
+The default workflow is:
+1. **Nova** (PM) creates PRD and GitHub issues
+2. **Pixel** (UX) creates designs based on PRD
+3. **Bolt** (Dev) implements the designs
+4. **Scout** (QA) tests and reports bugs
+
+Modify `orchestrator.py` to change the agent order or add new agents.
+
+## 🔄 How It Works
+
+### Orchestration Cycle
+
+1. **Wake Up** - Orchestrator triggers agents in sequence
+2. **Read Spec** - Each agent loads their personality from spec file
+3. **Check Memory** - Agent reads context from previous sessions
+4. **Check Slack** - Agent reads recent messages for context
+5. **Execute Task** - Agent performs their work
+6. **Update Memory** - Agent saves context for next session
+7. **Commit** - Agent pushes changes to GitHub
+
+### Agent Communication
+
+Agents communicate through Slack:
+- Post status updates
+- Ask questions to humans
+- Coordinate with other agents
+- Share deliverables
+
+## 🛠️ Scripts
+
+### Reset Project
+
+Clean up agent-created files and reset to bootstrap state:
+
+```bash
+# Dry run (see what would be deleted)
+python scripts/reset_project.py --dry-run
+
+# Full reset (deletes files and GitHub issues)
+python scripts/reset_project.py
+
+# Skip GitHub issue deletion
+python scripts/reset_project.py --skip-issues
+```
+
+## 📚 Documentation
+
+| Document | Description |
+|----------|-------------|
+| [ONBOARDING.md](agent-docs/ONBOARDING.md) | Agent onboarding guide |
+| [ARCHITECTURE.md](agent-docs/ARCHITECTURE.md) | System architecture |
+| [AGENT_PROTOCOL.md](agent-docs/AGENT_PROTOCOL.md) | Agent communication protocol |
+| [SLACK_INTERFACE.md](agent-docs/SLACK_INTERFACE.md) | Slack tool documentation |
 
 ## 📄 License
 

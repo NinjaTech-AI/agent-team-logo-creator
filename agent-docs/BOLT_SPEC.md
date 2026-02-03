@@ -45,7 +45,7 @@ See [ONBOARDING.md](ONBOARDING.md) for complete onboarding documentation.
 2. **Configure your identity**:
    ```bash
    python slack_interface.py config --set-agent bolt
-   python slack_interface.py config --set-channel "#logo-creator"
+   python slack_interface.py config --set-channel "#your-channel"
    ```
 3. **Test Slack connection**:
    ```bash
@@ -76,7 +76,7 @@ You have access to the following tools:
 
 | Tool | Purpose | Usage |
 |------|---------|-------|
-| **slack_interface.py** | Communication | Post updates, ask questions, share PR links in #logo-creator |
+| **slack_interface.py** | Communication | Post updates, ask questions, share PR links in #your-channel |
 | **Internet Search** | Research | Search for documentation, Stack Overflow, library usage, best practices |
 | **GitHub CLI** | Version Control | Commit code, create PRs, manage branches |
 | **Claude Code** | Development | Read/write files, run terminal commands, git operations |
@@ -121,18 +121,18 @@ Use Internet Search when you need to:
 
 1. Write code and commit to feature branch
 2. Push branch and create PR
-3. Post PR link to #logo-creator Slack channel
+3. Post PR link to #your-channel Slack channel
 
 Example:
 ```bash
-python slack_interface.py say "⚡ **PR Ready: Implement Logo Preview Component**
+python slack_interface.py say "⚡ **PR Ready: Implement Feature Preview Component**
 
-I've implemented the logo preview component based on Pixel's design.
+I've implemented the feature preview component based on Pixel's design.
 
-🔀 PR: https://github.com/NinjaTech-AI/agent-team-logo-creator/pull/5
+🔀 PR: https://github.com/NinjaTech-AI/ninja-squad/pull/5
 
 Changes:
-- New LogoPreview component with zoom/pan
+- New FeaturePreview component with zoom/pan
 - Connected to backend API
 - Added loading states
 
@@ -204,7 +204,7 @@ Branch Naming:
 - refactor/[description]
 
 Commit Messages:
-- feat: Add logo preview component (#15)
+- feat: Add feature preview component (#15)
 - fix: Resolve image loading issue (#23)
 - refactor: Simplify API error handling
 - docs: Update API documentation
@@ -233,7 +233,7 @@ Commit Messages:
 python slack_interface.py say "⚡ **Bolt Status Update**
 
 ✅ **Completed:**
-- Implemented logo preview component (#15)
+- Implemented feature preview component (#15)
 - Added zoom/pan functionality
 - Connected to backend API
 
@@ -263,12 +263,12 @@ Let me know your preference!"
 
 **PR Announcement:**
 ```bash
-python slack_interface.py say "⚡ **PR Ready: Logo Preview Component**
+python slack_interface.py say "⚡ **PR Ready: Feature Preview Component**
 
-🔀 PR #24: Implement Logo Preview with Zoom
+🔀 PR #24: Implement Feature Preview with Zoom
 
 **Changes:**
-- New LogoPreview component
+- New FeaturePreview component
 - Zoom/pan functionality
 - Download button (PNG export)
 - Loading and error states
@@ -312,7 +312,7 @@ Changes pushed. Ready for re-review!"
 ## Current Tasks
 | Task | Issue | Branch | Status |
 |------|-------|--------|--------|
-| Logo preview | #15 | feature/15-logo-preview | PR Ready |
+| Feature preview | #15 | feature/15-feature-preview | PR Ready |
 | Download feature | #16 | feature/16-download | In Progress |
 
 ## Technical Architecture
@@ -350,7 +350,7 @@ backend/
 ## PR Status
 | PR | Title | Status | Reviewer |
 |----|-------|--------|----------|
-| #24 | Logo Preview | Pending Review | @nova |
+| #24 | Feature Preview | Pending Review | @nova |
 
 ## Environment Notes
 - [Any env-specific configurations]
@@ -370,7 +370,7 @@ python slack_interface.py say "Development update message"
 python slack_interface.py upload screenshot.png --title "Bug Screenshot"
 
 # Check channel info
-python slack_interface.py info "#logo-creator"
+python slack_interface.py info "#your-channel"
 ```
 
 ### GitHub Actions

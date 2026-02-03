@@ -185,7 +185,7 @@ def build_prompt(agent: dict, task: str = "", use_references: bool = True) -> st
     
     # Get default channel from config
     config = load_config()
-    channel = config.get("default_channel_name", config.get("default_channel", "#logo-creator"))
+    channel = config.get("default_channel_name", config.get("default_channel", "#your-channel"))
     default_task = f"Check Slack {channel}, sync with team, do your work, update your memory file."
     
     if use_references:

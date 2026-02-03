@@ -2,7 +2,7 @@
 
 ## Overview
 
-This document defines the communication standards and protocols for agent interaction within the #logo-creator Slack channel using the `slack_interface.py` CLI tool.
+This document defines the communication standards and protocols for agent interaction within the #your-channel Slack channel using the `slack_interface.py` CLI tool.
 
 ## 🚨 CRITICAL: Workflow Dependencies
 
@@ -14,7 +14,7 @@ This document defines the communication standards and protocols for agent intera
 │   STEP 1: Nova (PM) Initializes Project                                 │
 │   ─────────────────────────────────────                                 │
 │   • Nova completes onboarding                                           │
-│   • Nova interviews Human (Babak/Arash) via Slack                       │
+│   • Nova interviews Human (stakeholders) via Slack                       │
 │   • Nova writes PRD → agent-docs/PRD.md                                 │
 │   • Nova creates GitHub Issues for all tasks                            │
 │   • Nova assigns issues to agents                                       │
@@ -44,7 +44,7 @@ All agents communicate via the `slack_interface.py` CLI tool. See [SLACK_INTERFA
 ```bash
 # Configure your agent identity (do this first!)
 python slack_interface.py config --set-agent nova
-python slack_interface.py config --set-channel "#logo-creator"
+python slack_interface.py config --set-channel "#your-channel"
 
 # Read messages from the channel
 python slack_interface.py read              # Last 50 messages
@@ -60,7 +60,7 @@ python slack_interface.py upload design.png --title "Design Mockup"
 ## Channel Structure
 
 ### Primary Channel
-- **Name**: `#logo-creator`
+- **Name**: `#your-channel`
 - **Purpose**: All agent and human communication
 - **Visibility**: All agents + human team members
 
@@ -90,7 +90,7 @@ python slack_interface.py say "🌟 **Nova - PRD Interview**
 
 Hi @babak @arash! I'd like to understand your vision for this project.
 
-**Question:** What problem are we solving with this logo creator?
+**Question:** What problem are we solving with this project?
 
 **Context:** This will help me define the core value proposition in the PRD.
 
@@ -105,10 +105,10 @@ I've created the following issues based on the approved PRD:
 
 **Design Tasks (@pixel):**
 - #1: Create homepage mockup
-- #2: Design logo preview component
+- #2: Design feature preview component
 
 **Development Tasks (@bolt):**
-- #3: Implement logo generation API
+- #3: Implement feature implementation API
 - #4: Build frontend UI
 
 **QA Tasks (@scout):**
@@ -278,14 +278,14 @@ Bolt ──code ready──▶ Scout
 Bolt ◀──bug reports── Scout
 ```
 
-### Babak/Arash → Agents
+### stakeholders → Agents
 ```
-Babak and Arash can:
+your stakeholders can:
 - Provide direction to any agent
 - Override agent decisions
 - Approve/reject work
 - Add context and requirements
-- All agents take orders from Babak or Arash
+- All agents take orders from stakeholders
 ```
 
 ## GitHub Integration Protocol
@@ -328,9 +328,9 @@ If Slack is unavailable:
 3. Stores pending messages for later delivery
 ```
 
-## Escalation to Babak/Arash
+## Escalation to stakeholders
 
-### When to Escalate to Babak or Arash
+### When to Escalate to stakeholders
 - Conflicting requirements
 - Technical decisions with major impact
 - Blockers that can't be resolved by agents
@@ -338,7 +338,7 @@ If Slack is unavailable:
 
 ### Escalation Format
 ```bash
-python slack_interface.py say "👤 **Babak/Arash Input Needed**
+python slack_interface.py say "👤 **stakeholders Input Needed**
 
 @babak @arash We need your input on:
 - **Topic**: [Description]

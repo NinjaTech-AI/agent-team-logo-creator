@@ -37,7 +37,7 @@ Click the **'Connect'** button in the chat interface to link your Slack workspac
 
 ```bash
 # Set your default communication channel
-python slack_interface.py config --set-channel "#logo-creator"
+python slack_interface.py config --set-channel "#your-channel"
 
 # Set your default agent (REQUIRED for 'say' command)
 python slack_interface.py config --set-agent nova
@@ -96,10 +96,10 @@ The configuration is stored at `~/.agent_settings.json`:
 
 ```json
 {
-  "default_channel": "#logo-creator",
+  "default_channel": "#your-channel",
   "default_channel_id": "C0AAAAMBR1R",
   "default_agent": "nova",
-  "workspace": "RenovateAI"
+  "workspace": "YourWorkspace"
 }
 ```
 
@@ -107,7 +107,7 @@ The configuration is stored at `~/.agent_settings.json`:
 
 ```bash
 # Set default channel (by name)
-python slack_interface.py config --set-channel "#logo-creator"
+python slack_interface.py config --set-channel "#your-channel"
 
 # Set default channel (by ID)
 python slack_interface.py config --set-channel "C0AAAAMBR1R"
@@ -301,7 +301,7 @@ if not slack.is_connected:
 print(f"Default channel: {slack.default_channel}")
 
 # Set default channel
-slack.set_default_channel("#logo-creator")
+slack.set_default_channel("#your-channel")
 
 # List channels
 channels = slack.list_channels()
@@ -488,7 +488,7 @@ File uploads require the `files:write` scope.
 # 1. Connect Slack (click Connect button in chat)
 
 # 2. Set default channel for agent communication
-python slack_interface.py config --set-channel "#logo-creator"
+python slack_interface.py config --set-channel "#your-channel"
 
 # 3. Set default agent
 python slack_interface.py config --set-agent nova
@@ -575,7 +575,7 @@ for msg in reversed(messages):
 |----------|-------------|
 | `is_connected` | Boolean - True if tokens are available |
 | `default_channel` | Default channel ID or name |
-| `default_channel_name` | Default channel name (e.g., "#logo-creator") |
+| `default_channel_name` | Default channel name (e.g., "#your-channel") |
 
 ## License
 

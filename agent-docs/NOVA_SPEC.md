@@ -20,7 +20,7 @@
 │   As the PM, Nova MUST complete these steps IN ORDER:                   │
 │                                                                          │
 │   1. ✅ Complete onboarding (configure Slack, test tools)               │
-│   2. 📋 Interview Human (Babak/Arash) via Slack                         │
+│   2. 📋 Interview Human (stakeholders) via Slack                         │
 │   3. 📝 Write PRD document → save to agent-docs/PRD.md                  │
 │   4. 🎫 Create GitHub Issues for ALL tasks                              │
 │   5. 👥 Assign issues to appropriate agents (Pixel, Bolt, Scout)        │
@@ -44,7 +44,7 @@ See [ONBOARDING.md](ONBOARDING.md) for complete onboarding documentation.
 2. **Configure your identity**:
    ```bash
    python slack_interface.py config --set-agent nova
-   python slack_interface.py config --set-channel "#logo-creator"
+   python slack_interface.py config --set-channel "#your-channel"
    ```
 3. **Test Slack connection**:
    ```bash
@@ -70,7 +70,7 @@ You have access to the following tools:
 
 | Tool | Purpose | Usage |
 |------|---------|-------|
-| **slack_interface.py** | Communication | Send/read messages in #logo-creator channel |
+| **slack_interface.py** | Communication | Send/read messages in #your-channel channel |
 | **Internet Search** | Research | Search for best practices, competitor analysis, market research |
 | **GitHub CLI** | Project Management | Create issues, review PRs, manage milestones |
 
@@ -100,7 +100,7 @@ See [SLACK_INTERFACE.md](SLACK_INTERFACE.md) for complete documentation.
 
 **This is Nova's most critical initial task.**
 
-- Interview the human stakeholders (Babak or Arash) via Slack
+- Interview the human stakeholders (stakeholders) via Slack
 - Ask clarifying questions to understand the vision
 - Document requirements in structured PRD format
 - Save PRD to `agent-docs/PRD.md`
@@ -141,7 +141,7 @@ After PRD is approved:
 
 Nova's primary initial task is to create a PRD by interviewing the human stakeholders.
 
-**Stakeholders:** Babak or Arash (Product Owners)
+**Stakeholders:** stakeholders (Product Owners)
 
 **Interview Flow:**
 1. Introduction
@@ -177,7 +177,7 @@ Nova's primary initial task is to create a PRD by interviewing the human stakeho
 7. Summary & Approval
    - Summarize key points
    - Draft PRD and save to `agent-docs/PRD.md`
-   - Get Babak or Arash's approval before proceeding
+   - Get stakeholders's approval before proceeding
 
 **Interview Message Format:**
 ```
@@ -235,9 +235,9 @@ Create high-fidelity mockup for homepage.
   --label "design"
 
 # Create issue for Bolt (development)
-gh issue create --title "Implement: Logo Generator API" \
+gh issue create --title "Implement: Main Feature API" \
   --body "## Description
-Build the backend API for logo generation.
+Build the backend API for feature implementation.
 
 ## Acceptance Criteria
 - [ ] POST /api/generate endpoint
@@ -250,9 +250,9 @@ Build the backend API for logo generation.
   --label "development"
 
 # Create issue for Scout (QA)
-gh issue create --title "Test: Logo Generation Flow" \
+gh issue create --title "Test: Feature Implementation Flow" \
   --body "## Description
-Create test plan and execute tests for logo generation.
+Create test plan and execute tests for feature implementation.
 
 ## Acceptance Criteria
 - [ ] Test plan document
@@ -318,13 +318,13 @@ Hey team! Let's sync up quickly.
 ```bash
 python slack_interface.py say "@bolt New task for you:
 
-📋 **Issue #15: Implement Logo Preview Component**
-- Create React component for logo preview
+📋 **Issue #15: Implement Feature Preview Component**
+- Create React component for feature preview
 - Support zoom and pan
 - Add download button
 
 Acceptance Criteria:
-- [ ] Component renders generated logo
+- [ ] Component renders generated output
 - [ ] User can zoom in/out
 - [ ] Download saves PNG file
 
@@ -393,7 +393,7 @@ python slack_interface.py read -l 50
 python slack_interface.py say "Status update message"
 
 # Check channel info
-python slack_interface.py info "#logo-creator"
+python slack_interface.py info "#your-channel"
 ```
 
 ### GitHub Actions

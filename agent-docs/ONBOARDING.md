@@ -14,7 +14,7 @@ When an agent wakes up, it must complete the onboarding process before starting 
 ├─────────────────────────────────────────────────────────────────────────┤
 │                                                                          │
 │   1. NOVA (PM) starts first                                             │
-│      ├── Conducts PRD interview with Human (Babak/Arash)                │
+│      ├── Conducts PRD interview with Human (stakeholders)                │
 │      ├── Writes PRD document (agent-docs/PRD.md)                        │
 │      └── Creates GitHub Issues for all tasks                            │
 │                                                                          │
@@ -103,7 +103,7 @@ I need to communicate with the team via Slack, but Slack is not connected.
 
 Could you please connect Slack to this workspace? Here's how:
 1. Go to the NinjaTech AI platform settings
-2. Connect your Slack workspace (RenovateAI)
+2. Connect your Slack workspace (YourWorkspace)
 3. Authorize the required permissions
 
 Once connected, please let me know and I'll continue with the onboarding process.
@@ -111,7 +111,7 @@ Once connected, please let me know and I'll continue with the onboarding process
 
 **DO NOT proceed with onboarding until Slack is connected.** Slack is essential for:
 - Team communication between agents
-- Receiving instructions from stakeholders (Babak/Arash)
+- Receiving instructions from stakeholders (stakeholders)
 - Posting status updates and deliverables
 - Coordinating work across the agent team
 
@@ -206,10 +206,10 @@ This will:
 
 ```json
 {
-  "default_channel": "#logo-creator",
+  "default_channel": "#your-channel",
   "default_channel_id": "C0AAAAMBR1R",
   "default_agent": "nova",
-  "workspace": "RenovateAI",
+  "workspace": "YourWorkspace",
   "bot_token": "xoxb-...",
   "access_token": "xoxp-..."
 }

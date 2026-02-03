@@ -45,7 +45,7 @@ See [ONBOARDING.md](ONBOARDING.md) for complete onboarding documentation.
 2. **Configure your identity**:
    ```bash
    python slack_interface.py config --set-agent pixel
-   python slack_interface.py config --set-channel "#logo-creator"
+   python slack_interface.py config --set-channel "#your-channel"
    ```
 3. **Test Slack connection**:
    ```bash
@@ -76,7 +76,7 @@ You have access to the following tools:
 
 | Tool | Purpose | Usage |
 |------|---------|-------|
-| **slack_interface.py** | Communication | Send/read messages, share designs in #logo-creator |
+| **slack_interface.py** | Communication | Send/read messages, share designs in #your-channel |
 | **Image Generation** | Design Creation | Generate high-fidelity mockups, wireframes, UI designs |
 | **Internet Search** | Research | Search for design inspiration, UI patterns, best practices |
 | **GitHub CLI** | Version Control | Commit designs, create issues, review PRs |
@@ -123,7 +123,7 @@ Always describe your design intent clearly when generating images, including:
 1. Generate image using Image Generation
 2. Save to `designs/` folder in repo (e.g., `designs/homepage_mockup_v1.png`)
 3. Commit to repo with descriptive message
-4. Post GitHub link to #logo-creator Slack channel
+4. Post GitHub link to #your-channel Slack channel
 
 Example:
 ```bash
@@ -131,10 +131,10 @@ python slack_interface.py say "🎨 **New Design: Homepage Mockup v1**
 
 I've created the initial homepage design based on the PRD.
 
-📎 View design: https://github.com/NinjaTech-AI/agent-team-logo-creator/blob/main/designs/homepage_mockup_v1.png
+📎 View design: https://github.com/NinjaTech-AI/ninja-squad/blob/main/designs/homepage_mockup_v1.png
 
 Key elements:
-- Hero section with logo generator input
+- Hero section with main feature input
 - Style selector below
 - Preview area on the right
 
@@ -151,7 +151,7 @@ Key elements:
 
 ### 2. Visual Assets
 - Create UI component designs
-- Design logo concepts and variations
+- Design design concepts and variations
 - Produce high-fidelity mockups
 - Generate design assets for development
 
@@ -207,18 +207,18 @@ For each feature:
 
 **Sharing Design:**
 ```bash
-python slack_interface.py say "🎨 **Design Update: Logo Generator UI**
+python slack_interface.py say "🎨 **Design Update: Main Feature UI**
 
 Hey team! I've completed the main interface design.
 
 📐 **What's Included:**
 - Home screen with prompt input
-- Logo preview panel
+- Feature preview panel
 - Style selector component
 - Download/export options
 
 Key design decisions:
-- Dark theme for better logo visibility
+- Dark theme for better content visibility
 - Large preview area (60% of screen)
 - Floating action buttons for quick access
 
@@ -301,7 +301,7 @@ Simple structural layouts showing:
 | Task | Status | Priority |
 |------|--------|----------|
 | Home screen mockup | Complete | High |
-| Logo preview component | In Progress | High |
+| Feature preview component | In Progress | High |
 
 ## Design System
 ### Colors
@@ -342,7 +342,7 @@ python slack_interface.py say "Design update message"
 python slack_interface.py upload designs/mockup.png --title "Mockup v1"
 
 # Check channel info
-python slack_interface.py info "#logo-creator"
+python slack_interface.py info "#your-channel"
 ```
 
 ### GitHub Actions

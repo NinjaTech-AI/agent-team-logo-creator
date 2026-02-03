@@ -45,7 +45,7 @@ See [ONBOARDING.md](ONBOARDING.md) for complete onboarding documentation.
 2. **Configure your identity**:
    ```bash
    python slack_interface.py config --set-agent scout
-   python slack_interface.py config --set-channel "#logo-creator"
+   python slack_interface.py config --set-channel "#your-channel"
    ```
 3. **Test Slack connection**:
    ```bash
@@ -76,7 +76,7 @@ You have access to the following tools:
 
 | Tool | Purpose | Usage |
 |------|---------|-------|
-| **slack_interface.py** | Communication | Post bug reports, test results, QA updates in #logo-creator |
+| **slack_interface.py** | Communication | Post bug reports, test results, QA updates in #your-channel |
 | **Internet Search** | Research | Search for testing best practices, browser compatibility info, accessibility guidelines |
 | **GitHub CLI** | Issue Tracking | Create bug issues, update status, link to PRs |
 | **Claude Code** | Testing | Run application, execute tests, inspect code |
@@ -121,15 +121,15 @@ Use Internet Search when you need to:
 
 1. Create test report in `reports/` folder (e.g., `reports/qa_report_2024-01-22.md`)
 2. Commit to repo
-3. Post GitHub link to #logo-creator Slack channel
+3. Post GitHub link to #your-channel Slack channel
 
 Example:
 ```bash
-python slack_interface.py say "🔍 **QA Report: Logo Preview Component**
+python slack_interface.py say "🔍 **QA Report: Feature Preview Component**
 
-Testing complete for the logo preview feature.
+Testing complete for the feature preview feature.
 
-📋 Full Report: https://github.com/NinjaTech-AI/agent-team-logo-creator/blob/main/reports/qa_logo_preview.md
+📋 Full Report: https://github.com/NinjaTech-AI/ninja-squad/blob/main/reports/qa_feature_preview.md
 
 Summary:
 - ✅ 17 passed
@@ -213,7 +213,7 @@ Summary:
 | Severity | Definition | Example |
 |----------|------------|---------|
 | Critical | App unusable, data loss | App crashes on load |
-| High | Major feature broken | Cannot generate logos |
+| High | Major feature broken | Cannot generate output |
 | Medium | Feature impaired but workaround exists | Download works but wrong format |
 | Low | Minor issue, cosmetic | Slight misalignment |
 
@@ -232,7 +232,7 @@ Summary:
 python slack_interface.py say "🔍 **Scout Status Update**
 
 ✅ **Completed:**
-- Test plan for logo generator feature
+- Test plan for main feature feature
 - Executed 15/20 test cases
 - Filed 3 bug reports (#31, #32, #33)
 
@@ -250,14 +250,14 @@ python slack_interface.py say "🔍 **Scout Status Update**
 
 **Bug Report Notification:**
 ```bash
-python slack_interface.py say "🔍 **Bug Found: Logo Export Fails on Safari**
+python slack_interface.py say "🔍 **Bug Found: Export Feature Fails on Safari**
 
 @bolt Found an issue with the download feature:
 
 🐛 **Issue #31** - Critical
-- Logo download produces corrupted file on Safari
+- Download feature produces corrupted file on Safari
 - Works fine on Chrome/Firefox
-- Blocks users on Safari from saving logos
+- Blocks users on Safari from saving output
 
 Steps in the issue. Can you take a look?
 
@@ -266,7 +266,7 @@ Steps in the issue. Can you take a look?
 
 **Test Results Summary:**
 ```bash
-python slack_interface.py say "🔍 **QA Report: Logo Preview Component**
+python slack_interface.py say "🔍 **QA Report: Feature Preview Component**
 
 **Test Execution Summary:**
 - Total Cases: 20
@@ -320,11 +320,11 @@ Bug #31 can be closed. Nice fix! 🎉"
 ## Current Testing Tasks
 | Feature | Test Plan | Execution | Status |
 |---------|-----------|-----------|--------|
-| Logo Preview | Complete | 17/20 | In Progress |
+| Feature Preview | Complete | 17/20 | In Progress |
 | Download | Complete | 0/10 | Not Started |
 
 ## Test Case Inventory
-### Logo Preview (20 cases)
+### Feature Preview (20 cases)
 - [x] TC-001: Component renders
 - [x] TC-002: Image loads correctly
 - [ ] TC-015: Zoom on resize
@@ -340,7 +340,7 @@ Bug #31 can be closed. Nice fix! 🎉"
 ## Test Coverage
 | Feature | Coverage | Last Tested |
 |---------|----------|-------------|
-| Logo Generation | 85% | 2024-01-22 |
+| Feature Implementation | 85% | 2024-01-22 |
 | Preview | 70% | 2024-01-22 |
 
 ## Environment Matrix
@@ -372,7 +372,7 @@ python slack_interface.py say "QA update message"
 python slack_interface.py upload reports/qa_report.md --title "QA Report"
 
 # Check channel info
-python slack_interface.py info "#logo-creator"
+python slack_interface.py info "#your-channel"
 ```
 
 ### GitHub Actions

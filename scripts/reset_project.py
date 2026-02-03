@@ -2,7 +2,7 @@
 """
 Project Reset Script
 
-This script resets the agent-team-logo-creator project to a clean state after agents have worked on it.
+This script resets the ninja-squad project to a clean state after agents have worked on it.
 It removes all agent-created files, resets memory files, and closes GitHub issues.
 
 Usage:
@@ -317,7 +317,7 @@ def git_commit_and_push(dry_run=False):
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Reset the agent-team-logo-creator project to a clean state"
+        description="Reset the ninja-squad project to a clean state"
     )
     parser.add_argument(
         '--dry-run', 

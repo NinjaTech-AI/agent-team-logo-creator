@@ -2,7 +2,7 @@
 
 ## Overview
 
-The Agent Team Logo Creator is a multi-agent collaborative system where AI agents work together to build a logo creation application. The system is designed around asynchronous collaboration with periodic synchronization.
+The NinjaSquad is a multi-agent collaborative system where AI agents work together to build a project application. The system is designed around asynchronous collaboration with periodic synchronization.
 
 ## 🚨 CRITICAL: Workflow Dependencies
 
@@ -14,7 +14,7 @@ The Agent Team Logo Creator is a multi-agent collaborative system where AI agent
 │   PHASE 1: Nova (PM) Initializes Project                                    │
 │   ══════════════════════════════════════                                    │
 │   1. Nova completes onboarding                                              │
-│   2. Nova interviews Human (Babak/Arash) via Slack                          │
+│   2. Nova interviews Human (stakeholders) via Slack                          │
 │   3. Nova writes PRD document → agent-docs/PRD.md                           │
 │   4. Nova creates GitHub Issues for all tasks                               │
 │   5. Nova assigns issues to appropriate agents                              │
@@ -80,7 +80,7 @@ All inter-agent and human-agent communication flows through Slack using the `sla
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
-│                    SLACK: #logo-creator                              │
+│                    SLACK: #your-channel                              │
 │                                                                      │
 │  Message Types:                                                      │
 │  • @nova - PM directives, task assignments                          │
@@ -152,7 +152,7 @@ The orchestrator manages the agent lifecycle:
 │                    PROJECT INITIALIZATION                             │
 ├──────────────────────────────────────────────────────────────────────┤
 │                                                                       │
-│  Human (Babak/Arash)                                                 │
+│  Human (stakeholders)                                                 │
 │       │                                                               │
 │       │ "WAKE UP Nova"                                               │
 │       ▼                                                               │
@@ -199,7 +199,7 @@ The orchestrator manages the agent lifecycle:
      │                │                │                │
      ▼                ▼                ▼                ▼
  Orchestrator    Slack Channel    Independent      GitHub +
-triggers all    #logo-creator    task execution   Memory files
+triggers all    #your-channel    task execution   Memory files
 agents          Nova leads
 ```
 
@@ -210,7 +210,7 @@ Time: T+0 (Sync Start)
 ├── Orchestrator triggers sync
 ├── All agents wake up
 ├── Agents read their memory files
-└── Agents join #logo-creator
+└── Agents join #your-channel
 
 Time: T+1 (Standup)
 ├── Nova posts sync agenda
@@ -259,7 +259,7 @@ python slack_interface.py read -l 50  # Last 50 messages
 python slack_interface.py say "Sprint planning at 2pm"
 
 # Configuration
-python slack_interface.py config --set-channel "#logo-creator"
+python slack_interface.py config --set-channel "#your-channel"
 python slack_interface.py config --set-agent nova
 
 # Other operations

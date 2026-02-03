@@ -393,7 +393,7 @@ Text: {msg.get('text', '')}{thread_info}
 """
     
     # Build the batched prompt
-    prompt = f"""You are {agent_name} {agent_emoji}, the {agent_role} on the Logo Creator project team.
+    prompt = f"""You are {agent_name} {agent_emoji}, the {agent_role} on the NinjaSquad project team.
 
 You have {len(pending_messages)} message(s) that need your response. Read ALL of them and respond to EACH ONE.
 
